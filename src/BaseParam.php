@@ -11,6 +11,7 @@ class BaseParam {
 
   public function name() {return $this->name;}
   public function value() {return $this->value;}
+  public function required() {$this->required = true; return $this;}
   public function isRequired() {return $this->required = true;}
 
   public static function IntType($key, $default = null) {
