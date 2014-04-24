@@ -129,13 +129,76 @@ abstract class BaseView {
 }
 
 class BaseHTMLView extends BaseView {
+  public function render($out) {echo $out;}
+}
+
+class BaseLayout extends BaseView {
+  protected
+    $layout,
+    $sections;
+
   public function __construct($layout = null) {
-    $this->layout = $layout;
+    if (!file_exists('layouts/' . $layout . '.html')) {
+      throw new Exception('Layout does not exist: ' . $layout);
+      return;
+    }
+
+    $this->layout = file_get_contents('layouts/' . $layout . '.html');
+    $this->sections = [];
+    preg_match_all('/{{[\w\d]+}}/', $this->layout, $this->sections);
+
+    foreach ($this->sections[0] as &$section) {
+      $section = strtolower($section);
+    }
+
+    if ($this->sections[0]) {
+      $this->sections = array_flip($this->sections[0]);
+    }
+
+  }
+
+  public function __call($name, $args) {
+    $section = [];
+    if (!preg_match('/addto([\w\d]+)/i', $name, $section)) {
+      $section = str_ireplace('addto', '', name);
+      throw new Exception('Invalid section: ' . $section);
+      return $this;
+    } else {
+      $section = strtolower(array_pop($section));
+    }
+
+    if (!idx($this->sections, '{{' . $section . '}}')) {
+      throw new Exception('Invalid section: ' . $section);
+      return $this;
+    }
+
+    if (!($args[0] instanceof BaseWidget)) {
+      throw new Exception('Invalid widget provided');
+      return $this;
+    }
+    return $this;
   }
 
   public function render($out) {
     echo $out;
   }
+}
+
+abstract class BaseWidget {
+  protected $partials;
+  public function __construct() {
+    $this->partials = $this->partials();
+    if (!is_array($this->partials)) {
+      throw new RuntimeException('Invalid partials provided.');
+      return;
+    }
+  }
+
+  public function partials() {
+    return [];
+  }
+
+  abstract public function render();
 }
 
 class BaseJSONView extends BaseView {
