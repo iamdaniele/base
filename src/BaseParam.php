@@ -14,12 +14,8 @@ class BaseParam {
   public function required() {$this->required = true; return $this;}
   public function isRequired() {return $this->required = true;}
 
-  public static function getParams() {
-    return array_merge($_GET, $_POST, $_FILES);
-  }
-
   public static function IntType($key, $default = null) {
-    $params = self::getParams();
+    $params = array_merge($_GET, $_POST, $_FILES);
     $value = idx($params, $key);
 
     invariant(!($value === null && $default === null),
@@ -36,7 +32,7 @@ class BaseParam {
     $key,
     $default = null) {
 
-    $params = self::getParams();
+    $params = array_merge($_GET, $_POST, $_FILES);
     $value = idx($params, $key);
 
     invariant(!($value === null && $default === null),
@@ -57,7 +53,7 @@ class BaseParam {
     $key,
     $default = null) {
 
-    $params = self::getParams();
+    $params = array_merge($_GET, $_POST, $_FILES);
     $value = idx($params, $key);
 
     invariant(!($value === null && $default === null),
@@ -72,7 +68,7 @@ class BaseParam {
     $key,
     $default = null) {
 
-    $params = self::getParams();
+    $params = array_merge($_GET, $_POST, $_FILES);
     $value = idx($params, $key);
 
     invariant(!($value === null && $default === null),
@@ -87,7 +83,7 @@ class BaseParam {
     $key,
     $default = null) {
 
-    $params = self::getParams();
+    $params = array_merge($_GET, $_POST, $_FILES);
     $value = idx($params, $key);
 
     invariant(!($value === null && $default === null),

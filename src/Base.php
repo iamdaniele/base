@@ -711,8 +711,13 @@ class MongoInstance {
       $db_url = implode('/', $db_url);
     } elseif (isset($_SERVER['MONGOHQ_URL'])) {
       $db_url = $_SERVER['MONGOHQ_URL'];
+      $parts = parse_url($db_url);
+      if (idx($parts, 'user') && idx($parts, 'pass')) {
+        $auth_pattern = sprintf('%s:%s@', $parts['user'], $parts['pass']);
+        $db_url = str_replace($auth_pattern, '', $db_url);
+      }
     } else {
-      l('no mongoHQ url');
+      throw new Exception('No MONGOHQ_URL specified');
       return null;
     }
 
@@ -725,6 +730,9 @@ class MongoInstance {
     $dbname = array_pop(explode('/', $db_url));
     $db = new Mongo($db_url);
     self::$db[$db_url] = $db->selectDB($dbname);
+    if ($parts && idx($parts, 'user') && idx($parts, 'pass')) {
+      self::$db[$db_url]->authenticate($parts['user'], $parts['pass']);
+    }
 
     if ($collection) {
       return $collection != null ?
