@@ -665,10 +665,24 @@ abstract class BaseModel {
     return array_key_exists($key, $this->document);
   }
 
-
   public final function remove($key) {
     if (!is_string($key) || empty($key)) {
       throw new InvalidArgumentException('Invalid null key');
+      return null;
+    }
+
+    $method = $this->overriddenMethod(__FUNCTION__, $key);
+    if ($method) {
+      return $this->$method();
+    }
+
+    if ($this->strict &&
+      (idx($this->schema, $key) == self::REQUIRED || $key == '_id')) {
+      $e = sprintf(
+        'Cannot remove %s required field %s',
+        get_called_class(),
+        $field);
+      throw new InvalidArgumentException($e);
       return null;
     }
 
@@ -676,7 +690,6 @@ abstract class BaseModel {
   }
 
   public function document() {return $this->document;}
-  public function requiredFields() {return [];}
 }
 
 class Error {
