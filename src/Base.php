@@ -764,6 +764,24 @@ class MongoFn {
   }
 }
 
+abstract class :base:layout extends :x:element {
+  public function init() {}
+
+  public final function section(string $section): :x:frag {
+    invariant(
+      isset($this->sections),
+      'At least one section need to be defined');
+
+    invariant(
+      idx($this->sections, $section) !== null,
+      'Section %s does not exist', $section);
+
+    return $this->sections[$section];
+  }
+
+  abstract public function render();
+}
+
 class :base:widget extends :x:element {
   public function stylesheet(): ?:link {
     return null;
