@@ -1,4 +1,4 @@
-<?php
+<?hh
 class BaseController {
   protected
     $app,
@@ -507,6 +507,21 @@ class Base {
         $dir = array_pop($class_type);
         require $map[$dir] . DIRECTORY_SEPARATOR . str_replace($dir, '', $class) . '.php';
       }
+
+      $layout_type = [];
+      if (preg_match('/^xhp_layout__([\d\w-]+)$/', $class, $layout_type)) {
+        $layout = array_pop($layout_type);
+        require 'layouts' .
+          DIRECTORY_SEPARATOR . $layout .
+          DIRECTORY_SEPARATOR . 'layout.hh';
+      }
+
+      $widget_type = [];
+      if (preg_match('/^xhp_widget__([\d\w-]+)$/', $class, $widget_type)) {
+        $widget = array_pop($widget_type);
+        require 'widgets' . DIRECTORY_SEPARATOR . $widget . '.hh';
+      }
+
     });
   }
 }
@@ -747,4 +762,44 @@ class MongoFn {
     $code = file_get_contents('mongo_functions/' . $file . '.js');
     return new MongoCode($code, $scope);
   }
+}
+
+class :base:widget extends :x:element {
+  public function stylesheet(): ?:link {
+    return null;
+  }
+
+  public function javascript(): ?:script {
+    return null;
+  }
+}
+
+class BaseLayoutHelper {
+  protected static :x:frag $javascripts;
+  protected static :x:frag $stylesheets;
+
+  public static function addJavascript(:script $javascript): void {
+    if (!self::$javascript) {
+      self::$javascripts = <x:frag />;
+    }
+
+    self::$javascripts->appendChild($javascript);
+  }
+
+  public static function addStylesheet(:link $stylesheet): void {
+      if (!self::$stylesheets) {
+        self::$stylesheets = <x:frag />;
+      }
+
+      self::$stylesheets->appendChild($stylesheet);
+  }
+
+  public static function javascripts(): :x:frag {
+    return self::$javascripts ? self::$javascripts : <x:frag />;
+  }
+
+  public static function stylesheets(): :x:frag {
+    return self::$stylesheets ? self::$stylesheets : <x:frag />;
+  }
+
 }

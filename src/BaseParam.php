@@ -1,4 +1,4 @@
-<?
+<?hh
 class BaseParam {
   protected $name;
   protected $value;
