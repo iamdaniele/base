@@ -95,7 +95,7 @@ class BaseController {
 
   // Called when the controller executes getFlow with success. Override this
   // method when you need to send extra field in your response.
-  protected function render() {echo '';}
+  // protected function render() {echo '';}
   protected function renderJSON() {echo json_encode([]);}
 
   protected function renderError(Exception $e) {var_dump($e);}
@@ -112,6 +112,11 @@ class BaseController {
   public final function done() {
     return $this->success;
   }
+
+  protected final function redirect(URL $url) {
+    header('Location: ' . $url->__toString());
+    die;
+  }
 }
 
 abstract class BaseView {
@@ -126,6 +131,12 @@ abstract class BaseView {
   }
 
   abstract public function render($out);
+}
+
+abstract class BaseMutatorController extends BaseController {
+  abstract public function render();
+
+  public function renderError(?Exception $e): URL {}
 }
 
 class BaseHTMLView extends BaseView {
@@ -229,6 +240,109 @@ class BaseJSONView extends BaseView {
 
     // }
     echo json_encode($msg);
+  }
+}
+
+class URL {
+  protected array $url;
+  protected array $query;
+  public function __construct(string $url) {
+    $this->url = parse_url($url);
+    if (idx($this->url, 'query')) {
+      $this->query = parse_str($this->url['query']);
+    }
+  }
+
+  public function query(string $key, ?mixed $value) {
+    if ($value === null) {
+      return idx($this->query, $key, null);
+    }
+
+    $this->query[$key] = $value;
+    return $this;
+  }
+
+  public function hash(?string $hash) {
+    if ($hash === null) {
+      return idx($this->url, 'hash', null);
+    }
+
+    $this->url['hash'] = $hash;
+    return $this;
+  }
+
+  public function port(?int $port) {
+    if ($port === null) {
+      return idx($this->url, 'port', null);
+    }
+
+    $this->url['port'] = $port;
+    return $this;
+  }
+
+  public function user(?string $user) {
+    if ($user === null) {
+      return idx($this->url, 'user', null);
+    }
+
+    $this->url['user'] = $user;
+    return $this;
+  }
+
+  public function pass(?string $pass) {
+    if ($pass === null) {
+      return idx($this->url, 'pass', null);
+    }
+
+    $this->url['pass'] = $pass;
+    return $this;
+  }
+
+  public function host(?string $host) {
+    if ($host === null) {
+      return idx($this->url, 'host', null);
+    }
+
+    $this->url['host'] = $host;
+    return $this;
+  }
+
+  public function path(?string $path) {
+    if ($path === null) {
+      return idx($this->url, 'path', null);
+    }
+
+    $this->url['path'] = $path;
+    return $this;
+  }
+
+  public function __toString() {
+    $query = '';
+    if (!empty($this->query)) {
+      $query = '?' . http_build_query($this->query);
+    }
+
+    $path = '';
+    if (idx($this->url, 'path')) {
+      $path = $this->url['path'][0] == '/' ?
+        $this->url['path'] :
+        '/' . $this->url['path'];
+    }
+
+    return sprintf(
+      '%s%s%s%s%s%s%s%s%s%s%s',
+      idx($this->url, 'scheme'),
+      idx($this->url, 'scheme') ? '://' : '',
+      idx($this->url, 'user') ? $this->url['user'] : '',
+      idx($this->url, 'user') && idx($this->url, 'pass') ? ':' : '',
+      idx($this->url, 'pass') ? $this->url['pass'] : '',
+      idx($this->url, 'user') || idx($this->url, 'pass') ? '@' : '',
+      idx($this->url, 'host') ? $this->url['host'] : '',
+      idx($this->url, 'port') ? ':' . $this->url['port'] : '',
+      $path,
+      $query,
+      idx($this->url, 'hash') ? '#' . $this->url['hash'] : '',
+    );
   }
 }
 
@@ -364,6 +478,7 @@ class ApiRunner {
   public function run() {
     $method = $this->getRequestMethod();
     $controller_path = $this->selectController();
+    $is_mutator = false;
 
     if (false === $controller_path) {
       return $this->notFound();
@@ -392,6 +507,7 @@ class ApiRunner {
       case 'POST':
       case 'PUT':
       case 'DELETE':
+        $is_mutator = true;
         $controller_path = str_replace($controller_name, '', $controller_path);
         // $controller_path .= 'mutators/' . $controller_name .
         //   ucfirst(strtolower($method));
@@ -409,6 +525,15 @@ class ApiRunner {
     }
 
     require_once $controller_path;
+    if ($is_mutator &&
+      get_parent_class($controller_name) != 'BaseMutatorController') {
+      throw new Exception(
+        sprintf(
+          '%s must be an instance of BaseMutatorController',
+          $controller_name));
+      return null;
+    }
+
     $controller = new $controller_name(
       $this->getPathInfo(),
       $this->getParams(),
