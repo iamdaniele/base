@@ -64,6 +64,14 @@ class BaseController {
     return !!idx($_SERVER, 'HTTP_X_REQUESTED_WITH') == 'XMLHTTPRequest';
   }
 
+  protected function status(int $status): void {
+    if ($status == 404) {
+      header('HTTP/1.0 404 Not Found');
+    } else {
+      header('HTTP/1.0 ' . $status);
+    }
+  }
+
   private function out() {
     if ($this->isXHR()) {
       $this->renderJSON();
@@ -77,18 +85,16 @@ class BaseController {
       if (method_exists($this, 'renderJSONError')) {
         $this->renderJSONError($e);
       } else {
-        $r = new BaseHTMLView();
-        $r->status(404);
-        $r->render('Not Found');
+        $this->status(404);
+        echo <h1>Not Found</h1>;
       }
 
     } else {
       if (method_exists($this, 'renderError')) {
         $this->renderError($e);
       } else {
-        $r = new BaseHTMLView();
-        $r->status(404);
-        $r->render('Not Found');
+        $this->status(404);
+        echo <h1>Not Found</h1>;
       }
     }
   }
@@ -280,9 +286,8 @@ class BaseNotFoundController extends BaseController {
     ];
   }
   public function render() {
-    $r = new BaseHTMLView();
-    $r->status(404);
-    $r->render('Not found: ' . $this->param('path_info'));
+    $this->status(404);
+    echo <h1>Not Found: {$this->param('path_info')}</h1>;
   }
 }
 
