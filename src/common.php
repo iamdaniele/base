@@ -14,15 +14,15 @@ function l() {
   }
   ob_end_clean();
   $message = implode(' ', $output) . PHP_EOL;
-  // $filename = 'php://stderr';
-  $filename = '/var/log/hhvm/error.log';
-
   $backtrace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS);
   $backtrace = array_shift($backtrace);
+  $resource = fopen($_ENV['BASE_LOG_FILE'], 'a+w');
   // $log = sprintf('[%s %s:%d] %s', date('r'), $backtrace['file'], $backtrace['line'], $log);
   $log = sprintf('[%s:%d] %s',
     $backtrace['file'], $backtrace['line'], $message);
-  file_put_contents($filename, $log, FILE_APPEND);
+
+  fwrite($resource, $log);
+  // file_put_contents($_ENV['BASE_LOG_FILE'], $log, FILE_APPEND);
 }
 
 function idx($array, $key, $default = null) {

@@ -908,11 +908,11 @@ abstract class :base:layout extends :x:element {
 }
 
 class :base:widget extends :x:element {
-  public function stylesheet(): ?:link {
+  public function stylesheets(): ?array<:link> {
     return null;
   }
 
-  public function javascript(): ?:script {
+  public function javascripts(): ?array<:script> {
     return null;
   }
 }
