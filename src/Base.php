@@ -838,41 +838,59 @@ abstract class :base:layout extends :x:element {
 }
 
 class :base:widget extends :x:element {
-  public function stylesheets(): ?array<:link> {
-    return null;
+  public final function css(mixed $url): void {
+    invariant(is_string($url) || is_array($url), 'url must be array or string');
+
+    if (is_array($url)) {
+      foreach ($url as $u) {
+        invariant(is_string($u), 'Invalid string provided');
+        BaseLayoutHelper::addStylesheet(<link rel="stylesheet" href={$u} />);
+      }
+    } elseif (is_string($url)) {
+      BaseLayoutHelper::addStylesheet(<link rel="stylesheet" href={$url} />);
+    }
   }
 
-  public function javascripts(): ?array<:script> {
-    return null;
+  public final function js(mixed $url): void {
+    invariant(is_string($url) || is_array($url), 'url must be array or string');
+
+    if (is_array($url)) {
+      foreach ($url as $u) {
+        invariant(is_string($u), 'Invalid string provided');
+        BaseLayoutHelper::addJavascript(<script src={$u}></script>);
+      }
+    } elseif (is_string($url)) {
+      BaseLayoutHelper::addJavascript(<script src={$url}></script>);
+    }
   }
 }
 
 class BaseLayoutHelper {
-  protected static :x:frag $javascripts;
-  protected static :x:frag $stylesheets;
+  protected static array $javascripts;
+  protected static array $stylesheets;
 
   public static function addJavascript(:script $javascript): void {
-    if (!self::$javascript) {
-      self::$javascripts = <x:frag />;
-    }
+    $url = $javascript->getAttribute('src');
 
-    self::$javascripts->appendChild($javascript);
+    if (!idx(self::$javascripts, $url)) {
+      self::$javascripts[$url] = $javascript;
+    }
   }
 
   public static function addStylesheet(:link $stylesheet): void {
-      if (!self::$stylesheets) {
-        self::$stylesheets = <x:frag />;
-      }
+    $url = $stylesheet->getAttribute('href');
 
-      self::$stylesheets->appendChild($stylesheet);
+    if (!idx(self::$stylesheets, $url)) {
+      self::$stylesheets[] = $stylesheet;
+    }
   }
 
-  public static function javascripts(): :x:frag {
-    return self::$javascripts ? self::$javascripts : <x:frag />;
+  public static function javascripts(): array<:script> {
+    return self::$javascripts === null ? [] : self::$javascripts;
   }
 
-  public static function stylesheets(): :x:frag {
-    return self::$stylesheets ? self::$stylesheets : <x:frag />;
+  public static function stylesheets(): array<:link> {
+    return self::$stylesheets === null ? [] : self::$stylesheets;
   }
 
 }
