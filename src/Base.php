@@ -76,7 +76,22 @@ class BaseController {
     if ($this->isXHR()) {
       $this->renderJSON();
     } else {
-      $this->render();
+      $layout = $this->render();
+      // Pre-render layout in order to trigger widgets' CSSs and JSs
+      $layout->__toString();
+      if ($layout->hasSection('stylesheets')) {
+        foreach (BaseLayoutHelper::stylesheets() as $css) {
+          $layout->section('stylesheets')->appendChild($css);
+        }
+      }
+
+      if ($layout->hasSection('javascripts')) {
+        foreach (BaseLayoutHelper::javascripts() as $js) {
+          $layout->section('javascripts')->appendChild($js);
+        }
+      }
+
+      echo $layout;
     }
   }
 
@@ -822,7 +837,7 @@ class MongoFn {
 abstract class :base:layout extends :x:element {
   public function init() {}
 
-  public final function section(string $section): :x:frag {
+  final public function section(string $section): :x:frag {
     invariant(
       isset($this->sections),
       'At least one section need to be defined');
@@ -834,7 +849,11 @@ abstract class :base:layout extends :x:element {
     return $this->sections[$section];
   }
 
-  abstract public function render();
+  final public function hasSection(string $section): bool {
+    return !!idx($this->sections, $section, false);
+  }
+
+  abstract public function render(): :x:element;
 }
 
 class :base:widget extends :x:element {
