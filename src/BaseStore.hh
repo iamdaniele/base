@@ -40,36 +40,26 @@ abstract class BaseStore {
     }
   }
 
-  public function paginatedFind($query, $skip = 0, $limit = 0) {
-    $class = $this->class;
-    $count = $this->db->count($query);
-    $docs = $this->db->find($query)->skip($skip)->limit($limit);
-
-    return $docs ?
-      new BaseStoreCursor($class, $count, $docs, $skip, $limit) :
-      false;
-  }
-
-  public function distinct($key, $query = []) {
+  public function distinct(string $key, array $query = []) {
     $docs = $this->db->distinct($key, $query);
     return !is_array($docs) ? [] : $docs;
   }
 
-  public function findOne($query) {
+  public function findOne(array $query): ?BaseModel {
     $doc = $this->db->findOne($query);
     $class = $this->class;
     return $doc ? new $class($doc) : null;
   }
 
-  public function findById($id) {
-    return $this->findOne(['_id' => mid($id)]);
+  public function findById(MongoId $id): ?BaseModel {
+    return $this->findOne(['_id' => $id]);
   }
 
-  public function count($query) {
+  public function count(array $query): int {
     return $this->db->count($query);
   }
 
-  protected function ensureType(BaseModel $item) {
+  protected function ensureType(BaseModel $item): bool {
     return class_exists($this->class) && is_a($item, $this->class);
   }
 
@@ -353,7 +343,8 @@ abstract class BaseModel {
       return null;
     }
 
-    $method = preg_replace('/^(get|set|remove|has)/i', '', $method);
+    // $method = preg_replace('/^(get|set|remove|has)/i', '', $method);
+    $method = preg_replace('/^(get|set)/i', '', $method);
 
     preg_match_all(
       '!([A-Z][A-Z0-9]*(?=$|[A-Z][a-z0-9])|[A-Za-z][a-z0-9]+)!',
@@ -368,14 +359,6 @@ abstract class BaseModel {
     }
 
     $field = implode('_', $ret);
-    if ($this->strict && !idx($this->schema, $field)) {
-      $e = sprintf(
-        '"%s" is not a valid field for %s',
-        $field,
-        get_called_class());
-      throw new InvalidArgumentException($e);
-      return null;
-    }
 
     $arg = array_pop($args);
 
@@ -384,77 +367,18 @@ abstract class BaseModel {
       throw new Exception($e);
     }
 
-    return $op == 'set' ? $this->set($field, $arg) : $this->$op($field);
-  }
+    switch ($op) {
+      case 'set':
+        $this->$field = $arg;
+        return;
 
-  private function overriddenMethod($prefix, $key) {
-    $method = $prefix . preg_replace_callback(
-      '/(?:^|_)(.?)/',
-      function($matches) {
-        return strtolower($matches[0]);
-      },
-      $key);
-
-    return method_exists($this, $method) ? strtolower($method) : null;
-  }
-
-  public final function get(string $key): ?mixed {
-    invariant(
-      idx($this, $key),
-      '%s is not a valid field for %s',
-      $key,
-      get_called_class());
-
-    $method = $this->overriddenMethod(__FUNCTION__, $key);
-    if ($method) {
-      return $this->$method();
+      case 'get':
+        invariant(
+          property_exists($this, $field),
+          '%s is not a valid field for %s',
+          $field,
+          get_called_class());
+        return $this->$field;
     }
-
-    return idx($this, $key);
-  }
-
-  public final function set(string $key, mixed $value): void {
-    invariant(
-      idx($this, $key),
-      '%s is not a valid field for %s',
-      $key,
-      get_called_class());
-
-    $method = $this->overriddenMethod(__FUNCTION__, $key);
-    if ($method) {
-      return $this->$method($value);
-    }
-
-    $this->document[$key] = $value;
-  }
-
-  public function has(string $key): bool {
-    invariant(
-      idx($this, $key),
-      '%s is not a valid field for %s',
-      $key,
-      get_called_class());
-
-    $method = $this->overriddenMethod(__FUNCTION__, $key);
-    if ($method) {
-      return $this->$method();
-    }
-
-    return !!idx($this, $key, false);
-  }
-
-  public final function remove(string $key): void {
-    invariant(
-      idx($this, $key),
-      '%s is not a valid field for %s',
-      $key,
-      get_called_class());
-
-    $method = $this->overriddenMethod(__FUNCTION__, $key);
-    if ($method) {
-      $this->$method();
-    }
-
-    unset($this->$key);
   }
 }
