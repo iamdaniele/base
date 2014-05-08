@@ -5,7 +5,8 @@ class BaseController {
     $params,
     $restricted,
     $path,
-    $skipParamValidation;
+    $skipParamValidation,
+    $jsonForced;
 
   public final function __construct(
     $route = null,
@@ -72,9 +73,17 @@ class BaseController {
     }
   }
 
+  protected function forceJSON() {
+    $this->jsonForced = true;
+  }
+
+  private function isJSONForced() {
+    return $this->jsonForced;
+  }
+
   private function out() {
-    if ($this->isXHR()) {
-      $this->renderJSON();
+    if ($this->isXHR() || $this->isJSONForced()) {
+      $this->renderJSON()->render();
     } else {
       $layout = $this->render();
       // Pre-render layout in order to trigger widgets' CSSs and JSs
@@ -150,7 +159,7 @@ abstract class BaseView {
     header(' ', true, $code);
   }
 
-  abstract public function render($out);
+  abstract public function render(bool $return_instead_of_echo);
 }
 
 abstract class BaseMutatorController extends BaseController {
@@ -160,33 +169,44 @@ abstract class BaseMutatorController extends BaseController {
 }
 
 class BaseJSONView extends BaseView {
-  protected final function success($data = null, $http_status = 200) {
+  private array<string, mixed> $_payload;
+  public final function success(
+    array<string, mixed> $data = null,
+    int $http_status = 200): this {
+
     $this->status($http_status);
-    $payload = ['success' => true];
+    $this->_payload = ['success' => true];
 
     if ($data) {
-      $payload['data'] = $data;
+      $this->_payload['data'] = $data;
     }
 
-    $this->render($payload);
+    return $this;
   }
 
-  protected final function error($code = true) {
+  public final function error(
+    ?string $message,
+    int $code = -1,
+    int $http_status = 500): this {
+
     $this->status($http_status);
-    $this->render(['success' => false, 'error' => $code]);
+    $this->_payload = [
+      'success' => false,
+      'message' => $message,
+      'code' => $code,
+    ];
+
+    return $this;
   }
 
-  public final function render($msg) {
-    // if (!headers_sent()) {
+  public final function render(bool $return_instead_of_echo = false) {
+    if ($return_instead_of_echo) {
+      return json_encode($this->_payload);
+    } else {
       header('Access-Control-Allow-Origin: *');
       header('Content-type: application/json; charset: utf-8');
-
-      if ($http_status !== null) {
-        header(' ', true, $this->status);
-      }
-
-    // }
-    echo json_encode($msg);
+      echo json_encode($this->_payload);
+    }
   }
 }
 
