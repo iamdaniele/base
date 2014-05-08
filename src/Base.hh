@@ -296,7 +296,7 @@ class URL {
     return $this;
   }
 
-  public function isAbsoluteURL(): bool {
+  public function isAbsolute(): bool {
     return !!(idx($this->url, 'scheme') && idx($this->url, 'host'));
   }
 
