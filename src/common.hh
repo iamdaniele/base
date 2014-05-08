@@ -1,4 +1,4 @@
-<?php
+<?hh
 function l() {
   global $app;
   $args = func_get_args();

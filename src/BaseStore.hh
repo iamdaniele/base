@@ -1,39 +1,43 @@
-<?php
+<?hh
 abstract class BaseStore {
-  protected
-    $class,
-    $db;
+  protected $class;
+  protected $db;
 
-  public function __construct($collection = null, $class = null) {
+  public function __construct(string $collection = null, string $class = null) {
     if (defined('static::COLLECTION') && defined('static::MODEL')) {
       $collection = static::COLLECTION;
       $class = static::MODEL;
     }
 
-    if ($collection && $class) {
-      $this->collection = $collection;
-      $this->class = $class;
-      $this->db = MongoInstance::get($collection);
-    } else {
-      throw new InvalidArgumentException('Collection or class not provided');
-      return null;
-    }
+    invariant($collection && $class, 'Collection or class not provided');
+
+    $this->collection = $collection;
+    $this->class = $class;
+    $this->db = MongoInstance::get($collection);
   }
 
   public function db() {
     return $this->db;
   }
 
-  public function find($query) {
+  public function find(
+    array $query = [],
+    ?int $skip = 0,
+    ?int $limit = 0): BaseModel {
     $docs = $this->db->find($query);
     $class = $this->class;
-    $res = [];
 
-    foreach ($docs as $doc) {
-      $res[] = new $class($doc);
+    if ($skip !== null) {
+      $docs = $docs->skip($skip);
     }
 
-    return $res;
+    if ($limit !== null) {
+      $limit = $docs->limit($limit);
+    }
+
+    foreach ($docs as $doc) {
+      yield new $class($doc);
+    }
   }
 
   public function paginatedFind($query, $skip = 0, $limit = 0) {
@@ -303,5 +307,154 @@ class BaseAggregation {
     }
 
     return ['$push' => $field];
+  }
+}
+
+abstract class BaseModel {
+  protected MongoId $_id;
+  public function __construct(array<string, mixed> $document = []) {
+
+    foreach ($document as $key => $value) {
+      if (property_exists($this, $key)) {
+        $this->$key = $key == '_id' ? mid($value) : $value;
+      }
+    }
+  }
+
+  public function document(): array<string, mixed> {
+    $out = [];
+    foreach ($this as $key => $value) {
+      $out[$key] = $key == '_id' ? (string)$value : $value;
+    }
+
+    return $out;
+  }
+
+  final public function getID(): ?MongoId {
+    return $this->_id;
+  }
+
+  final public function setID(MongoId $_id): void {
+    $this->_id = $_id;
+  }
+
+  public function __call($method, $args) {
+    if (strpos($method, 'get') === 0) {
+      $op = 'get';
+    } elseif (strpos($method, 'set') === 0) {
+      $op = 'set';
+    } elseif (strpos($method, 'remove') === 0) {
+      $op = 'remove';
+    } elseif (strpos($method, 'has') === 0) {
+      $op = 'has';
+    } else {
+      $e = sprintf('Method "%s" not found in %s', $method, get_called_class());
+      throw new RuntimeException($e);
+      return null;
+    }
+
+    $method = preg_replace('/^(get|set|remove|has)/i', '', $method);
+
+    preg_match_all(
+      '!([A-Z][A-Z0-9]*(?=$|[A-Z][a-z0-9])|[A-Za-z][a-z0-9]+)!',
+      $method,
+      $matches);
+
+    $ret = $matches[0];
+    foreach ($ret as &$match) {
+      $match = $match == strtoupper($match) ?
+        strtolower($match) :
+        lcfirst($match);
+    }
+
+    $field = implode('_', $ret);
+    if ($this->strict && !idx($this->schema, $field)) {
+      $e = sprintf(
+        '"%s" is not a valid field for %s',
+        $field,
+        get_called_class());
+      throw new InvalidArgumentException($e);
+      return null;
+    }
+
+    $arg = array_pop($args);
+
+    if (!method_exists($this, $op)) {
+      $e = sprintf('%s::%s() is not defined', get_called_class(), $op);
+      throw new Exception($e);
+    }
+
+    return $op == 'set' ? $this->set($field, $arg) : $this->$op($field);
+  }
+
+  private function overriddenMethod($prefix, $key) {
+    $method = $prefix . preg_replace_callback(
+      '/(?:^|_)(.?)/',
+      function($matches) {
+        return strtolower($matches[0]);
+      },
+      $key);
+
+    return method_exists($this, $method) ? strtolower($method) : null;
+  }
+
+  public final function get(string $key): ?mixed {
+    invariant(
+      idx($this, $key),
+      '%s is not a valid field for %s',
+      $key,
+      get_called_class());
+
+    $method = $this->overriddenMethod(__FUNCTION__, $key);
+    if ($method) {
+      return $this->$method();
+    }
+
+    return idx($this, $key);
+  }
+
+  public final function set(string $key, mixed $value): void {
+    invariant(
+      idx($this, $key),
+      '%s is not a valid field for %s',
+      $key,
+      get_called_class());
+
+    $method = $this->overriddenMethod(__FUNCTION__, $key);
+    if ($method) {
+      return $this->$method($value);
+    }
+
+    $this->document[$key] = $value;
+  }
+
+  public function has(string $key): bool {
+    invariant(
+      idx($this, $key),
+      '%s is not a valid field for %s',
+      $key,
+      get_called_class());
+
+    $method = $this->overriddenMethod(__FUNCTION__, $key);
+    if ($method) {
+      return $this->$method();
+    }
+
+    return !!idx($this, $key, false);
+  }
+
+  public final function remove(string $key): void {
+    invariant(
+      idx($this, $key),
+      '%s is not a valid field for %s',
+      $key,
+      get_called_class());
+
+    $method = $this->overriddenMethod(__FUNCTION__, $key);
+    if ($method) {
+      $this->$method();
+    }
+
+    unset($this->$key);
   }
 }

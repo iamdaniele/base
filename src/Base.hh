@@ -90,7 +90,6 @@ class BaseController {
           $layout->section('javascripts')->appendChild($js);
         }
       }
-
       echo $layout;
     }
   }
@@ -464,7 +463,7 @@ class ApiRunner {
         break;
     }
 
-    $controller_path = 'controllers/' . $controller_path . '.php';
+    $controller_path = 'controllers/' . $controller_path . '.hh';
 
     if (false === strpos($controller_name, 'Controller') ||
       !file_exists($controller_path)) {
@@ -577,7 +576,7 @@ class Base {
       $class_type = [];
       if (preg_match($pattern, $class, $class_type)) {
         $dir = array_pop($class_type);
-        require $map[$dir] . DIRECTORY_SEPARATOR . str_replace($dir, '', $class) . '.php';
+        require $map[$dir] . DIRECTORY_SEPARATOR . str_replace($dir, '', $class) . '.hh';
       }
 
       $layout_type = [];
@@ -594,197 +593,6 @@ class Base {
 
     });
   }
-}
-
-abstract class BaseModel {
-  const
-    FIELD = 'FIELD',
-    REQUIRED = 'REQUIRED';
-
-  protected
-    $strict,
-    $schema,
-    $document;
-
-  public function __construct($document = [], $strict = false) {
-    $this->strict = !!$strict;
-    $this->schema = $this->schema();
-
-    $this->document = [];
-
-    if (!is_array($this->schema)) {
-      throw new Exception('Schema must be a key => value array.');
-      return null;
-    }
-
-    $this->schema['_id'] = self::REQUIRED;
-
-    if (is_array($document) && !empty($document)) {
-      foreach ($document as $key => $value) {
-        $this->set($key, $value);
-      }
-    }
-  }
-
-  abstract public function schema();
-
-  public function __call($method, $args) {
-    if (strpos($method, 'get') === 0) {
-      $op = 'get';
-    } elseif (strpos($method, 'set') === 0) {
-      $op = 'set';
-    } elseif (strpos($method, 'remove') === 0) {
-      $op = 'remove';
-    } elseif (strpos($method, 'has') === 0) {
-      $op = 'has';
-    } else {
-      $e = sprintf('Method "%s" not found in %s', $method, get_called_class());
-      throw new RuntimeException($e);
-      return null;
-    }
-
-    $method = preg_replace('/^(get|set|remove|has)/i', '', $method);
-
-    preg_match_all(
-      '!([A-Z][A-Z0-9]*(?=$|[A-Z][a-z0-9])|[A-Za-z][a-z0-9]+)!',
-      $method,
-      $matches);
-
-    $ret = $matches[0];
-    foreach ($ret as &$match) {
-      $match = $match == strtoupper($match) ?
-        strtolower($match) :
-        lcfirst($match);
-    }
-
-    $field = implode('_', $ret);
-    if ($this->strict && !idx($this->schema, $field)) {
-      $e = sprintf(
-        '"%s" is not a valid field for %s',
-        $field,
-        get_called_class());
-      throw new InvalidArgumentException($e);
-      return null;
-    }
-
-    $arg = array_pop($args);
-
-    if (!method_exists($this, $op)) {
-      $e = sprintf('%s::%s() is not defined', get_called_class(), $op);
-      throw new Exception($e);
-    }
-
-    return $op == 'set' ? $this->set($field, $arg) : $this->$op($field);
-  }
-
-  private function overriddenMethod($prefix, $key) {
-    $method = $prefix . preg_replace_callback(
-      '/(?:^|_)(.?)/',
-      function($matches) {
-        return strtolower($matches[0]);
-      },
-      $key);
-
-    return method_exists($this, $method) ? strtolower($method) : null;
-  }
-
-  public function getID() {return idx($this->document, '_id');}
-  public function setID($value) {$this->document['_id'] = $value;}
-  public final function get($key) {
-    if (!is_string($key) || empty($key)) {
-      throw new InvalidArgumentException('Invalid null key');
-      return null;
-    }
-
-    $method = $this->overriddenMethod(__FUNCTION__, $key);
-    if ($method) {
-      return $this->$method();
-    }
-
-    if ($this->strict && !array_key_exists($key, $this->document)) {
-      $e = sprintf(
-        '\'%s\' is not a valid field for %s',
-        $field,
-        get_called_class());
-      throw new InvalidArgumentException($e);
-      return null;
-    }
-
-    return idx($this->document, $key);
-  }
-
-  public final function set($key, $value) {
-    if (!is_string($key) || empty($key)) {
-      throw new InvalidArgumentException('Invalid null key');
-      return null;
-    }
-
-    $method = $this->overriddenMethod(__FUNCTION__, $key);
-    if ($method) {
-      return $this->$method($value);
-    }
-
-    if ($this->strict && !idx($this->schema, $key)) {
-      $e = sprintf(
-        '%s is not a valid field for %s',
-        $field,
-        get_called_class());
-      throw new InvalidArgumentException($e);
-      return;
-    }
-
-    $this->document[$key] = $value;
-  }
-
-  public function has($key) {
-    if (!is_string($key) || empty($key)) {
-      throw new InvalidArgumentException('Invalid null key');
-      return null;
-    }
-
-    $method = $this->overriddenMethod(__FUNCTION__, $key);
-    if ($method) {
-      return $this->$method();
-    }
-
-    return array_key_exists($key, $this->document);
-  }
-
-  public final function remove($key) {
-    if (!is_string($key) || empty($key)) {
-      throw new InvalidArgumentException('Invalid null key');
-      return null;
-    }
-
-    $method = $this->overriddenMethod(__FUNCTION__, $key);
-    if ($method) {
-      return $this->$method();
-    }
-
-    if ($this->strict &&
-      (idx($this->schema, $key) == self::REQUIRED || $key == '_id')) {
-      $e = sprintf(
-        'Cannot remove %s required field %s',
-        get_called_class(),
-        $field);
-      throw new InvalidArgumentException($e);
-      return null;
-    }
-
-    unset($this->document[$key]);
-  }
-
-  public function document() {return $this->document;}
-}
-
-class Error {
-  const
-    SESSION_EXPIRED_OR_INVALID_SESSION = 1,
-    NO_ACCESS_TOKEN = 2,
-    FBUSER_NO_ADACCOUNT = 3,
-    FBREQUEST_INVALID_RESPONSE = 4,
-    OUR_FAULT = 5,
-    INVALID_PARAMS = 6;
 }
 
 class MongoInstance {
