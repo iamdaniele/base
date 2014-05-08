@@ -214,7 +214,11 @@ class URL {
   protected array $url;
   protected array $query;
   public function __construct(string $url) {
-    $this->url = parse_url($url);
+    $parsed_url = parse_url($url);
+    invariant($parsed_url !== false, 'Invalid URL');
+
+    $this->url = $parsed_url;
+
     if (idx($this->url, 'query')) {
       $this->query = parse_str($this->url['query']);
     }
@@ -229,7 +233,7 @@ class URL {
     return $this;
   }
 
-  public function hash(?string $hash) {
+  public function hash(?string $hash = null) {
     if ($hash === null) {
       return idx($this->url, 'hash', null);
     }
@@ -238,7 +242,7 @@ class URL {
     return $this;
   }
 
-  public function port(?int $port) {
+  public function port(?int $port = null) {
     if ($port === null) {
       return idx($this->url, 'port', null);
     }
@@ -247,7 +251,7 @@ class URL {
     return $this;
   }
 
-  public function user(?string $user) {
+  public function user(?string $user = null) {
     if ($user === null) {
       return idx($this->url, 'user', null);
     }
@@ -256,7 +260,7 @@ class URL {
     return $this;
   }
 
-  public function pass(?string $pass) {
+  public function pass(?string $pass = null) {
     if ($pass === null) {
       return idx($this->url, 'pass', null);
     }
@@ -265,7 +269,7 @@ class URL {
     return $this;
   }
 
-  public function host(?string $host) {
+  public function host(?string $host = null) {
     if ($host === null) {
       return idx($this->url, 'host', null);
     }
@@ -274,13 +278,26 @@ class URL {
     return $this;
   }
 
-  public function path(?string $path) {
+  public function path(?string $path = null) {
     if ($path === null) {
       return idx($this->url, 'path', null);
     }
 
     $this->url['path'] = $path;
     return $this;
+  }
+
+  public function scheme(?string $scheme = null) {
+    if ($scheme === null) {
+      return idx($this->url, 'scheme', null);
+    }
+
+    $this->url['scheme'] = $scheme;
+    return $this;
+  }
+
+  public function isAbsoluteURL(): bool {
+    return !!(idx($this->url, 'scheme') && idx($this->url, 'host'));
   }
 
   public function __toString() {
