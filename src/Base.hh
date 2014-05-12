@@ -224,7 +224,7 @@ class URL {
     }
   }
 
-  public function query(string $key, ?mixed $value) {
+  public function query(string $key, ?mixed $value = null) {
     if ($value === null) {
       return idx($this->query, $key, null);
     }
