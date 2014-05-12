@@ -362,11 +362,6 @@ abstract class BaseModel {
 
     $arg = array_pop($args);
 
-    if (!method_exists($this, $op)) {
-      $e = sprintf('%s::%s() is not defined', get_called_class(), $op);
-      throw new Exception($e);
-    }
-
     switch ($op) {
       case 'set':
         $this->$field = $arg;
