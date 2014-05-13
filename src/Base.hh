@@ -83,7 +83,8 @@ class BaseController {
 
   private function out() {
     if ($this->isXHR() || $this->isJSONForced()) {
-      $this->renderJSON()->render();
+      $view = $this->renderJSON();
+      $view->render();
     } else {
       $layout = $this->render();
       // Pre-render layout in order to trigger widgets' CSSs and JSs
@@ -106,7 +107,8 @@ class BaseController {
   private function outError(Exception $e) {
     if ($this->isXHR()) {
       if (method_exists($this, 'renderJSONError')) {
-        $this->renderJSONError($e);
+        $view = $this->renderJSONError($e);
+        $view->render();
       } else {
         $this->status(404);
         echo <h1>Not Found</h1>;
@@ -125,9 +127,15 @@ class BaseController {
   // Called when the controller executes getFlow with success. Override this
   // method when you need to send extra field in your response.
   // protected function render() {echo '';}
-  protected function renderJSON() {echo json_encode([]);}
+  protected function renderJSON(): BaseJSONView {
+    $view = new BaseJSONView();
+    $view->success();
+  }
 
-  protected function renderError(Exception $e) {var_dump($e);}
+  protected function renderError(Exception $e): BaseJSONView {
+    $view = new BaseJSONView();
+    $view->error($e->getMessage(), $e->getCode());
+  }
   protected function renderJSONError(Exception $e) {echo json_encode($e);}
 
   protected final function param($key) {
