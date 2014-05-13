@@ -228,7 +228,7 @@ class URL {
     $this->url = $parsed_url;
 
     if (idx($this->url, 'query')) {
-      $this->query = parse_str($this->url['query']);
+      parse_str($this->url['query'], $this->query);
     }
   }
 
