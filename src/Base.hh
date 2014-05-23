@@ -411,7 +411,7 @@ class ApiRunner {
               }
           }
       }
-
+      $_GET = array_merge($_GET, $this->params);
       return true;
   }
 
@@ -753,7 +753,7 @@ class BaseLayoutHelper {
     $url = $stylesheet->getAttribute('href');
 
     if (!idx(self::$stylesheets, $url)) {
-      self::$stylesheets[] = $stylesheet;
+      self::$stylesheets[$url] = $stylesheet;
     }
   }
 
