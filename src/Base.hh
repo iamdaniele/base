@@ -116,7 +116,22 @@ class BaseController {
 
     } else {
       if (method_exists($this, 'renderError')) {
-        $this->renderError($e);
+        $layout = $this->renderError($e);
+        // Pre-render layout in order to trigger widgets' CSSs and JSs
+        $layout->__toString();
+        if ($layout->hasSection('stylesheets')) {
+          foreach (BaseLayoutHelper::stylesheets() as $css) {
+            $layout->section('stylesheets')->appendChild($css);
+          }
+        }
+
+        if ($layout->hasSection('javascripts')) {
+          foreach (BaseLayoutHelper::javascripts() as $js) {
+            $layout->section('javascripts')->appendChild($js);
+          }
+        }
+        echo $layout;
+
       } else {
         $this->status(404);
         echo <h1>Not Found</h1>;
