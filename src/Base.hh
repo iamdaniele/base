@@ -236,7 +236,10 @@ class BaseJSONView extends BaseView {
 class URL {
   protected array $url;
   protected array $query;
-  public function __construct(string $url) {
+  public function __construct(?string $url = null) {
+    if ($url === null) {
+      $url = $this->buildCurrentURL();
+    }
     $parsed_url = parse_url($url);
     invariant($parsed_url !== false, 'Invalid URL');
 
@@ -245,6 +248,14 @@ class URL {
     if (idx($this->url, 'query')) {
       parse_str($this->url['query'], $this->query);
     }
+  }
+
+  protected function buildCurrentURL(): string {
+    return sprintf('%s://%s%s%s',
+      idx($_SERVER, 'HTTPS') ? 'https' : 'http',
+      idx($_SERVER, 'SERVER_NAME'),
+      idx($_SERVER, 'SERVER_PORT') ? ':' . $_SERVER['SERVER_PORT'] : '',
+      idx($_SERVER, 'REQUEST_URI'));
   }
 
   public function query(string $key, ?mixed $value = null) {
