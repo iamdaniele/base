@@ -100,17 +100,6 @@ abstract class BaseStore {
     return $this->removeWhere(['_id' => mid($id)]);
   }
 
-  protected function validateRequiredFields(BaseModel $item) {
-    foreach ($item->schema() as $field => $type) {
-      if ($field != '_id' &&
-        $type === BaseModel::REQUIRED && !$item->has($field)) {
-        return false;
-      }
-    }
-
-    return true;
-  }
-
   public function aggregate(BaseAggregation $aggregation) {
     return call_user_func_array(
       [$this->db, 'aggregate'],
@@ -157,22 +146,18 @@ abstract class BaseStore {
       return false;
     }
 
-    if (!$this->validateRequiredFields($item)) {
-      throw new Exception('One or more required fields are missing.');
-      return false;
-    }
-
     if ($item == null) {
       return false;
     }
 
     try {
-      if (!$item->getID()) {
-        $id = new MongoID();
-        $item->setID($id);
-      }
-      $this->db->save($item->document());
-
+      // if (!$item->getID()) {
+      //   $id = new MongoId();
+      //   $item->setID($id);
+      // }
+      $document = $item->document();
+      $this->db->save($document);
+      l($document);
       return true;
     } catch (MongoException $e) {
       l('MongoException:', $e->getMessage());
@@ -301,7 +286,6 @@ class BaseAggregation {
 }
 
 abstract class BaseModel {
-  protected MongoId $_id;
   public function __construct(array<string, mixed> $document = []) {
 
     foreach ($document as $key => $value) {
