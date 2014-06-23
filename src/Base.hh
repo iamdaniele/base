@@ -117,6 +117,9 @@ class BaseController {
     } else {
       if (method_exists($this, 'renderError')) {
         $layout = $this->renderError($e);
+        if (!$layout) {
+          return;
+        }
         // Pre-render layout in order to trigger widgets' CSSs and JSs
         $layout->__toString();
         if ($layout->hasSection('stylesheets')) {
