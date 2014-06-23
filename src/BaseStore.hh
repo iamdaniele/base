@@ -151,13 +151,15 @@ abstract class BaseStore {
     }
 
     try {
-      // if (!$item->getID()) {
-      //   $id = new MongoId();
-      //   $item->setID($id);
-      // }
-      $document = $item->document();
-      $this->db->save($document);
-      l($document);
+      if (!$item->getID()) {
+        $id = new MongoId();
+        $item->setID($id);
+        $document = $item->document();
+        $this->db->insert($document);
+      } else {
+        $document = $item->document();
+        $this->db->save($document);
+      }
       return true;
     } catch (MongoException $e) {
       l('MongoException:', $e->getMessage());
@@ -286,6 +288,7 @@ class BaseAggregation {
 }
 
 abstract class BaseModel {
+  public ?MongoId $_id;
   public function __construct(array<string, mixed> $document = []) {
 
     foreach ($document as $key => $value) {
@@ -296,12 +299,7 @@ abstract class BaseModel {
   }
 
   public function document(): array<string, mixed> {
-    $out = [];
-    foreach ($this as $key => $value) {
-      $out[$key] = $key == '_id' ? (string)$value : $value;
-    }
-
-    return $out;
+    return get_object_vars($this);
   }
 
   final public function getID(): ?MongoId {
