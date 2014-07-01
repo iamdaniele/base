@@ -672,10 +672,16 @@ class Base {
 class MongoInstance {
   protected static $db = [];
   public static function get($collection = null, $with_collection = false) {
-    if (strpos('mongodb://', $collection) !== false) {
+    if (strpos($collection, 'mongodb://') !== false) {
       $db_url = explode('/', $collection);
-      $collection = $with_collection ? array_pop($collection) : null;
+      $collection = $with_collection ? array_pop($db_url) : null;
       $db_url = implode('/', $db_url);
+      $parts = parse_url($db_url);
+      if (idx($parts, 'user') && idx($parts, 'pass')) {
+        $auth_pattern = sprintf('%s:%s@', $parts['user'], $parts['pass']);
+        $db_url = str_replace($auth_pattern, '', $db_url);
+      }
+
     } elseif (isset($_SERVER['MONGOHQ_URL'])) {
       $db_url = $_SERVER['MONGOHQ_URL'];
       $parts = parse_url($db_url);
