@@ -15,6 +15,3 @@ require_once 'BaseStore.hh';
 require_once 'Base.hh';
 
 Base::registerAutoloader();
-
-$app = new ApiRunner($map);
-$app->run();

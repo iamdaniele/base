@@ -82,7 +82,9 @@ class BaseController {
   }
 
   private function out() {
-    if ($this->isXHR() || $this->isJSONForced()) {
+    if ($this instanceof BasePreprocessController) {
+      $this->render();
+    } elseif ($this->isXHR() || $this->isJSONForced()) {
       $view = $this->renderJSON();
       $view->render();
     } else {
@@ -105,7 +107,11 @@ class BaseController {
   }
 
   private function outError(Exception $e) {
-    if ($this->isXHR()) {
+    if ($this instanceof BasePreprocessController) {
+      $url = $this->renderError($e);
+      $this->redirect($url);
+      die;
+    } elseif ($this->isXHR()) {
       if (method_exists($this, 'renderJSONError')) {
         $view = $this->renderJSONError($e);
         $view->render();
@@ -191,6 +197,11 @@ abstract class BaseView {
 abstract class BaseMutatorController extends BaseController {
   abstract public function render();
 
+  public function renderError(?Exception $e): URL {}
+}
+
+class BasePreprocessController extends BaseController {
+  final public function render() {}
   public function renderError(?Exception $e): URL {}
 }
 
@@ -381,6 +392,7 @@ class BaseNotFoundController extends BaseController {
 
 class ApiRunner {
   protected
+    $preprocessControllers,
     $map,
     $pathInfo,
     $params,
@@ -390,6 +402,7 @@ class ApiRunner {
     $this->map = $map;
     $this->paramNames = [];
     $this->params = [];
+    $this->preprocessControllers = [];
   }
 
   protected function getPathInfo() {
@@ -495,7 +508,23 @@ class ApiRunner {
     return $controller;
   }
 
+  public function registerPreprocess(string $controller): void {
+    if (class_exists($controller)) {
+      $this->preprocessControllers[] = $controller;
+    } else {
+      throw new Exception('Preprocess controller not found: ' . $controller);
+    }
+  }
+
   public function run() {
+    foreach ($this->preprocessControllers as $controller_name) {
+      $controller = new $controller_name(
+        $this->getPathInfo(),
+        $this->getParams(),
+        $this->getFiles(),
+        $this->canAccessRestrictedEndpoints());
+    }
+
     $method = $this->getRequestMethod();
     $controller_path = $this->selectController();
     $is_mutator = false;
@@ -630,6 +659,7 @@ class Base {
         'Enum' => 'const',
         'Const' => 'const',
         'Exception' => 'exceptions',
+        'Controller' => 'controllers',
       ];
 
       // These classes are stored in lib/base or lib/queue, so no need to
