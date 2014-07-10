@@ -829,5 +829,111 @@ class BaseLayoutHelper {
   public static function stylesheets(): array<:link> {
     return self::$stylesheets === null ? [] : self::$stylesheets;
   }
+}
 
+class BaseTranslationHolder {
+  static array $projects;
+
+  static protected function loadProject(string $locale, string $project): bool {
+    if (static::$projects == null) {
+      static::$projects[$locale] = [];
+    }
+
+    if (idx(static::$projects[$locale], $project)) {
+      return true;
+    }
+
+    $project_path = sprintf('projects/%s/%s.json', $locale, $project);
+
+    if (!file_exists($project_path)) {
+      l('The requested translation project is missing:', $project_path);
+      static::$projects[$locale][$project] = [];
+      return false;
+    } else {
+      static::$projects[$locale][$project] =
+        json_decode(file_get_contents($project_path));
+
+      invariant(
+        json_last_error() == JSON_ERROR_NONE,
+        'Failed parsing translation project: ', $project_path);
+
+      return true;
+    }
+  }
+
+  static public function translation(
+    string $locale,
+    string $project,
+    string $key): string {
+    if (static::$projects == null) {
+      static::loadProject($locale, $project);
+    }
+
+    return idx(static::$projects[$locale][$project], $key, $key);
+  }
+}
+
+class :t extends :x:primitive {
+  category %flow;
+  children (pcdata | %translation)*;
+  attribute
+    string locale,
+    string project,
+    string description;
+
+  public function init() {
+    invariant(
+      $this->getAttribute('locale') || idx($_ENV, 'APPLICATION_DEFAULT_LOCALE'),
+      'No default locale provided');
+
+    $this->locale = $this->getAttribute('locale') ?
+      $this->getAttribute('locale') :
+      $_ENV['APPLICATION_DEFAULT_LOCALE'];
+  }
+
+  public function stringify() {
+    $key = '';
+    $tokens = [];
+    foreach ($this->getChildren() as $elem) {
+      if (is_string($elem)) {
+        $key .= $elem;
+      } else {
+        $token_key = sprintf('{%s}', $elem->getAttribute('name'));
+        $tokens[$token_key] = $elem->stringify();
+        $key .= $token_key;
+      }
+    }
+
+    $translation = BaseTranslationHolder::translation(
+      $this->locale,
+      $this->getAttribute('project'),
+      $key);
+
+    foreach ($tokens as $token_key => &$token) {
+      $translated_token = BaseTranslationHolder::translation(
+        $this->locale,
+        $this->getAttribute('project'),
+        $token_key);
+
+      $token = $translated_token === $token_key ?
+        $token :
+        $translated_token;
+    }
+
+    return str_replace(
+      array_keys($tokens),
+      array_values($tokens),
+      $translation);
+  }
+}
+
+class :t:p extends :x:primitive {
+  category %translation;
+  children (pcdata);
+  attribute
+    string name @required;
+
+  public function stringify() {
+    return $this->getChildren()[0];
+  }
 }
