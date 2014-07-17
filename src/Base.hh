@@ -721,9 +721,10 @@ class MongoInstance {
       }
     } else {
       l('MongoInstance: No MONGOHQ_URL specified or invalid collection.');
-      l('MONGOHQ_URL: %s, collection: %s',
+      l(sprintf('MONGOHQ_URL: %s, collection: %s',
         idx($_SERVER, 'MONGOHQ_URL'),
-        $collection);
+        $collection));
+      l('_ENV[MONGOHQ_URL]:', $_ENV['MONGOHQ_URL']);
 
       throw new Exception('No MONGOHQ_URL specified');
       return null;
