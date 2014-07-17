@@ -720,6 +720,11 @@ class MongoInstance {
         $db_url = str_replace($auth_pattern, '', $db_url);
       }
     } else {
+      l('MongoInstance: No MONGOHQ_URL specified or invalid collection.');
+      l('MONGOHQ_URL: %s, collection: %s',
+        idx($_SERVER, 'MONGOHQ_URL'),
+        $collection);
+
       throw new Exception('No MONGOHQ_URL specified');
       return null;
     }
