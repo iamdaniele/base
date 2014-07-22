@@ -712,8 +712,8 @@ class MongoInstance {
         $db_url = str_replace($auth_pattern, '', $db_url);
       }
 
-    } elseif (isset($_SERVER['MONGOHQ_URL'])) {
-      $db_url = $_SERVER['MONGOHQ_URL'];
+    } elseif (isset($_ENV['MONGOHQ_URL'])) {
+      $db_url = $_ENV['MONGOHQ_URL'];
       $parts = parse_url($db_url);
       if (idx($parts, 'user') && idx($parts, 'pass')) {
         $auth_pattern = sprintf('%s:%s@', $parts['user'], $parts['pass']);
