@@ -874,6 +874,7 @@ class BaseTranslationHolder {
     if (static::$projects == null) {
       static::loadProject($locale, $project);
     }
+    $key = trim($key);
 
     return idx(static::$projects[$locale][$project], $key, $key);
   }
