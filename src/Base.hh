@@ -892,7 +892,7 @@ class BaseTranslationHolder {
 }
 
 class :t extends :x:primitive {
-  category %phrase;
+  category %phrase, %flow;
   children (pcdata | %translation)*;
   attribute
     string locale,
