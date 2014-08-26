@@ -888,13 +888,13 @@ class :t extends :x:primitive {
     string description;
 
   public function init() {
-    invariant(
-      $this->getAttribute('locale') || idx($_ENV, 'APPLICATION_DEFAULT_LOCALE'),
-      'No default locale provided');
-
-    $this->locale = $this->getAttribute('locale') ?
-      $this->getAttribute('locale') :
-      $_ENV['APPLICATION_DEFAULT_LOCALE'];
+    if ($this->getAttribute('locale')) {
+      $this->locale = $this->getAttribute('locale');
+    } elseif (idx($_ENV, 'LOCALE')) {
+      $this->locale = $_ENV['LOCALE'];
+    } else {
+      invariant_violation('No default locale provided');
+    }
   }
 
   public function stringify() {
