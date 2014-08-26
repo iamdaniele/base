@@ -875,8 +875,19 @@ class BaseTranslationHolder {
       static::loadProject($locale, $project);
     }
     $key = trim($key);
+    if (idx($_ENV, 'APPLICATION_ENV') != 'prod' ||
+      idx($_ENV, 'APPLICATION_ENV') != null) {
+      $translation = idx(static::$projects[$locale][$project], $key, null);
+      if (!$translation) {
+        $file = sprintf('(%s/%s.json)', $locale, $project);
+        l('Notice: Translation missing for the key:', $key, $file);
+        return $key;
+      }
 
-    return idx(static::$projects[$locale][$project], $key, $key);
+      return $translation;
+    } else {
+      return idx(static::$projects[$locale][$project], $key, $key);
+    }
   }
 }
 
