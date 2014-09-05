@@ -91,17 +91,20 @@ class BaseController {
       $layout = $this->render();
       // Pre-render layout in order to trigger widgets' CSSs and JSs
       $layout->__toString();
-      if ($layout->hasSection('stylesheets')) {
-        foreach (BaseLayoutHelper::stylesheets() as $css) {
-          $layout->section('stylesheets')->appendChild($css);
+      if (method_exists($layout, 'hasSection')) {
+        if ($layout->hasSection('stylesheets')) {
+          foreach (BaseLayoutHelper::stylesheets() as $css) {
+            $layout->section('stylesheets')->appendChild($css);
+          }
+        }
+
+        if ($layout->hasSection('javascripts')) {
+          foreach (BaseLayoutHelper::javascripts() as $js) {
+            $layout->section('javascripts')->appendChild($js);
+          }
         }
       }
 
-      if ($layout->hasSection('javascripts')) {
-        foreach (BaseLayoutHelper::javascripts() as $js) {
-          $layout->section('javascripts')->appendChild($js);
-        }
-      }
       echo $layout;
     }
   }
@@ -128,17 +131,20 @@ class BaseController {
         }
         // Pre-render layout in order to trigger widgets' CSSs and JSs
         $layout->__toString();
-        if ($layout->hasSection('stylesheets')) {
-          foreach (BaseLayoutHelper::stylesheets() as $css) {
-            $layout->section('stylesheets')->appendChild($css);
+        if (method_exists($layout, 'hasSection')) {
+          if ($layout->hasSection('stylesheets')) {
+            foreach (BaseLayoutHelper::stylesheets() as $css) {
+              $layout->section('stylesheets')->appendChild($css);
+            }
+          }
+
+          if ($layout->hasSection('javascripts')) {
+            foreach (BaseLayoutHelper::javascripts() as $js) {
+              $layout->section('javascripts')->appendChild($js);
+            }
           }
         }
 
-        if ($layout->hasSection('javascripts')) {
-          foreach (BaseLayoutHelper::javascripts() as $js) {
-            $layout->section('javascripts')->appendChild($js);
-          }
-        }
         echo $layout;
 
       } else {
@@ -154,13 +160,18 @@ class BaseController {
   protected function renderJSON(): BaseJSONView {
     $view = new BaseJSONView();
     $view->success();
+    return $view;
   }
 
-  protected function renderError(Exception $e): BaseJSONView {
+  protected function renderError(Exception $e) {
+    return <div>{print_r($e, true)}</div>;
+  }
+
+  protected function renderJSONError(Exception $e): BaseJSONView {
     $view = new BaseJSONView();
     $view->error($e->getMessage(), $e->getCode());
+    return $view;
   }
-  protected function renderJSONError(Exception $e) {echo json_encode($e);}
 
   protected final function param($key) {
     return idx($this->params, $key) ? $this->params[$key]->value() : null;
