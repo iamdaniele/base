@@ -22,7 +22,7 @@ class BaseController {
     try {
       $params = $this->params();
       if (true === $this->skipParamValidation) {
-        $this->params = array_merge($_GET, $_POST, $_REQUEST, $_FILES);
+        $this->params = array_merge($_GET, $_POST, $_FILES);
       } elseif (is_array($params)) {
         foreach ($params as $param) {
           $this->params[$param->name()] = $param;
