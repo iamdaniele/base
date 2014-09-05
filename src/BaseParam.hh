@@ -93,4 +93,14 @@ class BaseParam {
     invariant(is_string($value), 'Wrong type: %s', $key);
     return new BaseParam($key, $value);
   }
+
+  public static function FileType(
+    $key,
+    $default = null) {
+    invariant(!(idx($_FILES, $key, null) === null && $default === null),
+      'Param is required: ' . $key);
+
+    invariant(idx($_FILES, $key, false), 'Wrong type: %s', $key);
+    return new BaseParam($key, $_FILES[$key]);
+  }
 }
