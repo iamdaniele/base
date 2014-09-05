@@ -82,30 +82,35 @@ class BaseController {
   }
 
   private function out() {
-    if ($this instanceof BasePreprocessController) {
-      $this->render();
-    } elseif ($this->isXHR() || $this->isJSONForced()) {
-      $view = $this->renderJSON();
-      $view->render();
-    } else {
-      $layout = $this->render();
-      // Pre-render layout in order to trigger widgets' CSSs and JSs
-      $layout->__toString();
-      if (method_exists($layout, 'hasSection')) {
-        if ($layout->hasSection('stylesheets')) {
-          foreach (BaseLayoutHelper::stylesheets() as $css) {
-            $layout->section('stylesheets')->appendChild($css);
+    try {
+      if ($this instanceof BasePreprocessController) {
+        $this->render();
+      } elseif ($this->isXHR() || $this->isJSONForced()) {
+        $view = $this->renderJSON();
+        $view->render();
+      } else {
+        $layout = $this->render();
+        // Pre-render layout in order to trigger widgets' CSSs and JSs
+        $layout->__toString();
+        if (method_exists($layout, 'hasSection')) {
+          if ($layout->hasSection('stylesheets')) {
+            foreach (BaseLayoutHelper::stylesheets() as $css) {
+              $layout->section('stylesheets')->appendChild($css);
+            }
+          }
+
+          if ($layout->hasSection('javascripts')) {
+            foreach (BaseLayoutHelper::javascripts() as $js) {
+              $layout->section('javascripts')->appendChild($js);
+            }
           }
         }
 
-        if ($layout->hasSection('javascripts')) {
-          foreach (BaseLayoutHelper::javascripts() as $js) {
-            $layout->section('javascripts')->appendChild($js);
-          }
-        }
+        echo $layout;
       }
-
-      echo $layout;
+    } catch (Exception $e) {
+      l($e);
+      die;
     }
   }
 
@@ -395,9 +400,10 @@ class BaseNotFoundController extends BaseController {
       BaseParam::StringType('path_info')
     ];
   }
+
   public function render() {
     $this->status(404);
-    echo <h1>Not Found: {$this->param('path_info')}</h1>;
+    return <h1>Not Found: {$this->param('path_info')}</h1>;
   }
 }
 
