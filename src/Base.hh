@@ -174,7 +174,7 @@ class BaseController {
 
   protected function renderJSONError(Exception $e): BaseJSONView {
     $view = new BaseJSONView();
-    $view->error($e->getMessage(), $e->getCode());
+    $view->error($e->getMessage(), 500, $e->getCode());
     return $view;
   }
 
@@ -203,7 +203,7 @@ abstract class BaseView {
     $this->status = 200;
   }
 
-  public function status($code = 200) {
+  public function status(int $code = 200) {
     http_response_code($code);
   }
 
