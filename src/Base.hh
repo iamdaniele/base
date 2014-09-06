@@ -204,7 +204,7 @@ abstract class BaseView {
   }
 
   public function status($code = 200) {
-    header(' ', true, $code);
+    http_response_code($code);
   }
 
   abstract public function render(bool $return_instead_of_echo);
@@ -239,8 +239,8 @@ class BaseJSONView extends BaseView {
 
   public final function error(
     ?string $message,
-    int $code = -1,
-    int $http_status = 500): this {
+    int $http_status = 500,
+    int $code = -1): this {
 
     $this->status($http_status);
     $this->_payload = [
@@ -404,6 +404,18 @@ class BaseNotFoundController extends BaseController {
   public function render() {
     $this->status(404);
     return <h1>Not Found: {$this->param('path_info')}</h1>;
+  }
+
+  public function renderJSON(): BaseJSONView {
+    $view = new BaseJSONView();
+    $view->error('Invalid endpoint: ' . $this->param('path_info'), 404);
+    return $view;
+  }
+
+  public function renderJSONError($e): BaseJSONView {
+    $view = new BaseJSONView();
+    $view->error('Invalid endpoint: ' . $this->param('path_info'), 404);
+    return $view;
   }
 }
 
@@ -892,19 +904,7 @@ class BaseTranslationHolder {
       static::loadProject($locale, $project);
     }
     $key = trim($key);
-    if (idx($_ENV, 'APPLICATION_ENV') != 'prod' ||
-      idx($_ENV, 'APPLICATION_ENV') != null) {
-      $translation = idx(static::$projects[$locale][$project], $key, null);
-      if (!$translation) {
-        $file = sprintf('(%s/%s.json)', $locale, $project);
-        l('Notice: Translation missing for the key:', $key, $file);
-        return $key;
-      }
-
-      return $translation;
-    } else {
-      return idx(static::$projects[$locale][$project], $key, $key);
-    }
+    return idx(static::$projects[$locale][$project], $key, $key);
   }
 }
 

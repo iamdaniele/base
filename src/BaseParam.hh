@@ -28,6 +28,24 @@ class BaseParam {
     return new BaseParam($key, $value);
   }
 
+  public static function EmailType($key, ?string $default = null) {
+    $params = array_merge($_GET, $_POST);
+    $value = idx($params, $key);
+
+    invariant(!($value === null && $default === null),
+      'Param is required: ' . $key);
+
+    if ($value === null && is_string($default)) {
+      return new BaseParam($key, $default);
+    }
+
+    $value = $value !== null ? $value : $default;
+    $value = filter_var($value, FILTER_SANITIZE_EMAIL);
+    $value = filter_var($value, FILTER_VALIDATE_EMAIL);
+    invariant($value !== false, 'Wrong type: %s', $key);
+    return new BaseParam($key, $value);
+  }
+
   public static function FloatType(
     $key,
     $default = null) {
@@ -84,12 +102,13 @@ class BaseParam {
     $default = null) {
 
     $params = array_merge($_GET, $_POST, $_FILES);
-    $value = idx($params, $key);
+    $value = trim(idx($params, $key));
 
-    invariant(!($value === null && $default === null),
+    invariant(!(empty($value) && $default === null),
       'Param is required: ' . $key);
 
     $value = $value !== null ? $value : $default;
+    $value = filter_var($value, FILTER_SANITIZE_STRING);
     invariant(is_string($value), 'Wrong type: %s', $key);
     return new BaseParam($key, $value);
   }
