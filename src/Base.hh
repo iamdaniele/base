@@ -909,7 +909,7 @@ class BaseTranslationHolder {
     string $locale,
     string $project,
     string $key): string {
-    if (static::$projects == null) {
+    if (!isset(static::$projects[$locale][$project])) {
       static::loadProject($locale, $project);
     }
     $key = trim($key);
