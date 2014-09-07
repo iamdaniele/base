@@ -101,7 +101,7 @@ class BaseParam {
     $key,
     $default = null) {
 
-    $params = array_merge($_GET, $_POST, $_FILES);
+    $params = array_merge($_GET, $_POST);
     $value = trim(idx($params, $key));
 
     invariant(!(empty($value) && $default === null),
@@ -121,5 +121,28 @@ class BaseParam {
 
     invariant(idx($_FILES, $key, false), 'Wrong type: %s', $key);
     return new BaseParam($key, $_FILES[$key]);
+  }
+
+  public static function MongoIdType(
+    $key,
+    $default = null) {
+
+    $params = array_merge($_GET, $_POST);
+    $value = trim(idx($params, $key));
+
+    invariant(!(empty($value) && $default === null),
+      'Param is required: ' . $key);
+
+    if (empty($value) && $default !== null) {
+      return new BaseParam($key, $default);
+    }
+
+    try {
+      $value = mid($value);
+    } catch (Exception $e) {
+      invariant_violation('Wrong type: %s', $key);
+    }
+
+    return new BaseParam($key, $value);
   }
 }
