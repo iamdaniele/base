@@ -297,6 +297,15 @@ class URL {
     return $this;
   }
 
+  public function removeQuery(?string $key = null) {
+    if ($key === null) {
+      $this->query = [];
+    } elseif (idx($this->query, $key)) {
+      unset($this->query[$key]);
+    }
+    return $this;
+  }
+
   public function hash(?string $hash = null) {
     if ($hash === null) {
       return idx($this->url, 'hash', null);
