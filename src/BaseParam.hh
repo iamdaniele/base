@@ -92,8 +92,13 @@ class BaseParam {
     invariant(!($value === null && $default === null),
       'Param is required: ' . $key);
 
-    $value = $value !== null ? json_decode($value, true) : $default;
-    invariant(JSON_ERROR_NONE === json_last_error(), 'Wrong type: %s', $key);
+    if ($value !== null) {
+      $value = json_decode($value, true);
+      invariant(JSON_ERROR_NONE === json_last_error(), 'Wrong type: %s', $key);
+    } else {
+      $value = $default;
+    }
+
     return new BaseParam($key, $value);
   }
 
