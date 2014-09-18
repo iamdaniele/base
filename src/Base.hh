@@ -698,6 +698,7 @@ class Base {
         'Const' => 'const',
         'Exception' => 'exceptions',
         'Controller' => 'controllers',
+        'Worker' => 'Workers'
       ];
 
       // These classes are stored in lib/base or lib/queue, so no need to
@@ -710,6 +711,8 @@ class Base {
         case 'BaseQueueFileModel':
         case 'BaseStore':
         case 'BaseEnum':
+        case 'BaseWorkerScheduler':
+        case 'BaseWorker':
         return;
       }
 
