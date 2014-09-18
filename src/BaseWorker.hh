@@ -37,6 +37,10 @@ abstract class BaseWorker {
     $this->init();
   }
 
+  public function shouldRetry(): bool {
+    return false;
+  }
+
   public function beforeRun(): void {}
 
   public function init(): void {}
