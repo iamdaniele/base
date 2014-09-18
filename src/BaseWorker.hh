@@ -13,9 +13,19 @@ class BaseWorkerScheduler {
       'password' => parse_url($_ENV['REDISCLOUD_URL'], PHP_URL_PASS)]);
   }
 
-  public static function schedule(BaseWorker $worker): void {
+  public static function run(BaseWorker $worker): void {
     if (!self::$queue) {
       self::initQueue();
+    }
+
+    try {
+      $worker->beforeRun();
+    } catch (Exception $e) {
+      invariant_violation(
+        '%s: %s failed precheck: %s',
+        __CLASS__,
+        get_class($worker),
+        $e->getMessage());
     }
 
     self::$queue->rpush(self::SCHEDULER_KEY, serialize($worker));
@@ -26,6 +36,8 @@ abstract class BaseWorker {
   public final function __construct() {
     $this->init();
   }
+
+  public function beforeRun(): void {}
 
   public function init(): void {}
   abstract public function run(): void;
