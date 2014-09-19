@@ -1,5 +1,18 @@
 <?hh
 
+if (array_key_exists('APPLICATION_ENV', $_ENV) &&
+  $_ENV['APPLICATION_ENV'] != 'prod') {
+  $env_file = 'env/' . $_SERVER['SERVER_NAME'] . '.json';
+  if (file_exists($env_file)) {
+    $vars = json_decode(file_get_contents($env_file), true);
+    if (json_last_error() == JSON_ERROR_NONE) {
+      foreach ($vars as $key => $value) {
+        $_ENV[$key] = $value;
+      }
+    }
+  }
+}
+
 if (!array_key_exists('BASE_LOG_FILE', $_ENV)) {
   $_ENV['BASE_LOG_FILE'] = 'php://stderr';
 }
@@ -12,6 +25,7 @@ $_ENV['BASE_LOG_FILE'] = str_replace(
 require_once 'common.hh';
 require_once 'BaseParam.hh';
 require_once 'BaseStore.hh';
+require_once 'BaseWorker.hh';
 require_once 'Base.hh';
 
 Base::registerAutoloader();
