@@ -83,7 +83,7 @@ class BaseController {
 
   private function out() {
     try {
-      if ($this instanceof BasePreprocessController) {
+      if ($this instanceof BaseListener) {
         $this->render();
       } elseif ($this->isXHR() || $this->isJSONForced()) {
         $view = $this->renderJSON();
@@ -115,10 +115,15 @@ class BaseController {
   }
 
   private function outError(Exception $e) {
-    if ($this instanceof BasePreprocessController) {
-      $url = $this->renderError($e);
-      $this->redirect($url);
-      die;
+    if ($this instanceof BaseListener) {
+      l(sprintf(
+        '%s %s: %s (%s:%s)',
+        get_class($this),
+        get_class($e),
+        $e->getMessage(),
+        $e->getFile(),
+        $e->getLine()));
+      return;
     } elseif ($this->isXHR()) {
       if (method_exists($this, 'renderJSONError')) {
         $view = $this->renderJSONError($e);
@@ -216,7 +221,7 @@ abstract class BaseMutatorController extends BaseController {
   public function renderError(?Exception $e): URL {}
 }
 
-class BasePreprocessController extends BaseController {
+class BaseListener extends BaseController {
   final public function render() {}
   public function renderError(?Exception $e): URL {}
 }
@@ -430,7 +435,7 @@ class BaseNotFoundController extends BaseController {
 
 class ApiRunner {
   protected
-    $preprocessControllers,
+    $listeners,
     $map,
     $pathInfo,
     $params,
@@ -440,7 +445,7 @@ class ApiRunner {
     $this->map = $map;
     $this->paramNames = [];
     $this->params = [];
-    $this->preprocessControllers = [];
+    $this->listeners = [];
   }
 
   protected function getPathInfo() {
@@ -547,22 +552,31 @@ class ApiRunner {
     return $controller;
   }
 
-  public function registerPreprocess(string $controller): void {
+  public function addEventListener(string $event, string $controller): void {
     if (class_exists($controller)) {
-      $this->preprocessControllers[] = $controller;
+      $this->listeners[$event][] = $controller;
     } else {
-      throw new Exception('Preprocess controller not found: ' . $controller);
+      throw new Exception('Listener not found: ' . $controller);
     }
   }
 
-  public function run() {
-    foreach ($this->preprocessControllers as $controller_name) {
+  public function fireEvent($event): void {
+    if (!idx($this->listeners, $event)) {
+      return;
+    }
+
+    foreach ($this->listeners[$event] as $controller_name) {
       $controller = new $controller_name(
         $this->getPathInfo(),
         $this->getParams(),
         $this->getFiles(),
         $this->canAccessRestrictedEndpoints());
     }
+  }
+
+  public function run() {
+
+    $this->fireEvent('preprocess');
 
     $method = $this->getRequestMethod();
     $controller_path = $this->selectController();
@@ -628,6 +642,7 @@ class ApiRunner {
       $this->getFiles(),
       $this->canAccessRestrictedEndpoints());
 
+    $this->fireEvent('controllerEnd');
     return $controller;
   }
 }
@@ -763,6 +778,8 @@ class Base {
         'Const' => 'const',
         'Exception' => 'exceptions',
         'Controller' => 'controllers',
+        'Worker' => 'workers',
+        'Listener' => 'listeners',
       ];
 
       // These classes are stored in lib/base or lib/queue, so no need to
@@ -775,6 +792,9 @@ class Base {
         case 'BaseQueueFileModel':
         case 'BaseStore':
         case 'BaseEnum':
+        case 'BaseWorkerScheduler':
+        case 'BaseWorker':
+        case 'BaseListener':
         return;
       }
 
@@ -974,7 +994,7 @@ class BaseTranslationHolder {
     string $locale,
     string $project,
     string $key): string {
-    if (static::$projects == null) {
+    if (!isset(static::$projects[$locale][$project])) {
       static::loadProject($locale, $project);
     }
     $key = trim($key);

@@ -252,7 +252,11 @@ class BaseAggregation {
     return $this;
   }
 
-  public function sum($value = 1) {
+  public static function addToSet(string $field): array {
+    return ['$addToSet' => '$' . $field];
+  }
+
+  public static function sum($value = 1): array {
     if (!is_numeric($value)) {
       $value = '$' . $value;
     }

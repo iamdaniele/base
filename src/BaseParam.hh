@@ -28,6 +28,24 @@ class BaseParam {
     return new BaseParam($key, $value);
   }
 
+  public static function EmailType($key, ?string $default = null) {
+    $params = array_merge($_GET, $_POST);
+    $value = idx($params, $key);
+
+    invariant(!($value === null && $default === null),
+      'Param is required: ' . $key);
+
+    if ($value === null && is_string($default)) {
+      return new BaseParam($key, $default);
+    }
+
+    $value = $value !== null ? $value : $default;
+    $value = filter_var($value, FILTER_SANITIZE_EMAIL);
+    $value = filter_var($value, FILTER_VALIDATE_EMAIL);
+    invariant($value !== false, 'Wrong type: %s', $key);
+    return new BaseParam($key, $value);
+  }
+
   public static function FloatType(
     $key,
     $default = null) {
@@ -74,8 +92,13 @@ class BaseParam {
     invariant(!($value === null && $default === null),
       'Param is required: ' . $key);
 
-    $value = $value !== null ? json_decode($value, true) : $default;
-    invariant(JSON_ERROR_NONE === json_last_error(), 'Wrong type: %s', $key);
+    if ($value !== null) {
+      $value = json_decode($value, true);
+      invariant(JSON_ERROR_NONE === json_last_error(), 'Wrong type: %s', $key);
+    } else {
+      $value = $default;
+    }
+
     return new BaseParam($key, $value);
   }
 
@@ -83,14 +106,48 @@ class BaseParam {
     $key,
     $default = null) {
 
-    $params = array_merge($_GET, $_POST, $_FILES);
-    $value = idx($params, $key);
+    $params = array_merge($_GET, $_POST);
+    $value = trim(idx($params, $key));
 
-    invariant(!($value === null && $default === null),
+    invariant(!(empty($value) && $default === null),
       'Param is required: ' . $key);
 
     $value = $value !== null ? $value : $default;
+    $value = filter_var($value, FILTER_SANITIZE_STRING);
     invariant(is_string($value), 'Wrong type: %s', $key);
+    return new BaseParam($key, $value);
+  }
+
+  public static function FileType(
+    $key,
+    $default = null) {
+    invariant(!(idx($_FILES, $key, null) === null && $default === null),
+      'Param is required: ' . $key);
+
+    invariant(idx($_FILES, $key, false), 'Wrong type: %s', $key);
+    return new BaseParam($key, $_FILES[$key]);
+  }
+
+  public static function MongoIdType(
+    $key,
+    $default = null) {
+
+    $params = array_merge($_GET, $_POST);
+    $value = trim(idx($params, $key));
+
+    invariant(!(empty($value) && $default === null),
+      'Param is required: ' . $key);
+
+    if (empty($value) && $default !== null) {
+      return new BaseParam($key, $default);
+    }
+
+    try {
+      $value = mid($value);
+    } catch (Exception $e) {
+      invariant_violation('Wrong type: %s', $key);
+    }
+
     return new BaseParam($key, $value);
   }
 }

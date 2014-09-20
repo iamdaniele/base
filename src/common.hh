@@ -53,6 +53,26 @@ function s() {
   return call_user_func_array('sprintf', $args);
 }
 
+function regex(string $pattern, string $subject) {
+  $out = [];
+  if (preg_match($pattern, $subject, $out) === false) {
+    return null;
+  }
+
+  return $out;
+}
+
+function regex_all(string $pattern, string $subject, ?int &$matches = null) {
+  $out = [];
+  $m = preg_match_all($pattern, $subject, $out);
+  if ($m === false) {
+    return null;
+  }
+
+  $matches = $m;
+  return $out;
+}
+
 if (!function_exists('getallheaders')) {
   function getallheaders() {
     $headers = '';
