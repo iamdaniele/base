@@ -22,7 +22,7 @@ class BaseController {
     try {
       $params = $this->params();
       if (true === $this->skipParamValidation) {
-        $this->params = array_merge($_GET, $_POST, $_REQUEST, $_FILES);
+        $this->params = array_merge($_GET, $_POST, $_FILES);
       } elseif (is_array($params)) {
         foreach ($params as $param) {
           $this->params[$param->name()] = $param;
@@ -82,27 +82,35 @@ class BaseController {
   }
 
   private function out() {
-    if ($this instanceof BasePreprocessController) {
-      $this->render();
-    } elseif ($this->isXHR() || $this->isJSONForced()) {
-      $view = $this->renderJSON();
-      $view->render();
-    } else {
-      $layout = $this->render();
-      // Pre-render layout in order to trigger widgets' CSSs and JSs
-      $layout->__toString();
-      if ($layout->hasSection('stylesheets')) {
-        foreach (BaseLayoutHelper::stylesheets() as $css) {
-          $layout->section('stylesheets')->appendChild($css);
-        }
-      }
+    try {
+      if ($this instanceof BasePreprocessController) {
+        $this->render();
+      } elseif ($this->isXHR() || $this->isJSONForced()) {
+        $view = $this->renderJSON();
+        $view->render();
+      } else {
+        $layout = $this->render();
+        // Pre-render layout in order to trigger widgets' CSSs and JSs
+        $layout->__toString();
+        if (method_exists($layout, 'hasSection')) {
+          if ($layout->hasSection('stylesheets')) {
+            foreach (BaseLayoutHelper::stylesheets() as $css) {
+              $layout->section('stylesheets')->appendChild($css);
+            }
+          }
 
-      if ($layout->hasSection('javascripts')) {
-        foreach (BaseLayoutHelper::javascripts() as $js) {
-          $layout->section('javascripts')->appendChild($js);
+          if ($layout->hasSection('javascripts')) {
+            foreach (BaseLayoutHelper::javascripts() as $js) {
+              $layout->section('javascripts')->appendChild($js);
+            }
+          }
         }
+
+        echo $layout;
       }
-      echo $layout;
+    } catch (Exception $e) {
+      l($e);
+      die;
     }
   }
 
@@ -128,17 +136,20 @@ class BaseController {
         }
         // Pre-render layout in order to trigger widgets' CSSs and JSs
         $layout->__toString();
-        if ($layout->hasSection('stylesheets')) {
-          foreach (BaseLayoutHelper::stylesheets() as $css) {
-            $layout->section('stylesheets')->appendChild($css);
+        if (method_exists($layout, 'hasSection')) {
+          if ($layout->hasSection('stylesheets')) {
+            foreach (BaseLayoutHelper::stylesheets() as $css) {
+              $layout->section('stylesheets')->appendChild($css);
+            }
+          }
+
+          if ($layout->hasSection('javascripts')) {
+            foreach (BaseLayoutHelper::javascripts() as $js) {
+              $layout->section('javascripts')->appendChild($js);
+            }
           }
         }
 
-        if ($layout->hasSection('javascripts')) {
-          foreach (BaseLayoutHelper::javascripts() as $js) {
-            $layout->section('javascripts')->appendChild($js);
-          }
-        }
         echo $layout;
 
       } else {
@@ -154,13 +165,18 @@ class BaseController {
   protected function renderJSON(): BaseJSONView {
     $view = new BaseJSONView();
     $view->success();
+    return $view;
   }
 
-  protected function renderError(Exception $e): BaseJSONView {
-    $view = new BaseJSONView();
-    $view->error($e->getMessage(), $e->getCode());
+  protected function renderError(Exception $e) {
+    return <div>{print_r($e, true)}</div>;
   }
-  protected function renderJSONError(Exception $e) {echo json_encode($e);}
+
+  protected function renderJSONError(Exception $e): BaseJSONView {
+    $view = new BaseJSONView();
+    $view->error($e->getMessage(), 500, $e->getCode());
+    return $view;
+  }
 
   protected final function param($key) {
     return idx($this->params, $key) ? $this->params[$key]->value() : null;
@@ -187,8 +203,8 @@ abstract class BaseView {
     $this->status = 200;
   }
 
-  public function status($code = 200) {
-    header(' ', true, $code);
+  public function status(int $code = 200) {
+    http_response_code($code);
   }
 
   abstract public function render(bool $return_instead_of_echo);
@@ -223,8 +239,8 @@ class BaseJSONView extends BaseView {
 
   public final function error(
     ?string $message,
-    int $code = -1,
-    int $http_status = 500): this {
+    int $http_status = 500,
+    int $code = -1): this {
 
     $this->status($http_status);
     $this->_payload = [
@@ -278,6 +294,15 @@ class URL {
     }
 
     $this->query[$key] = $value;
+    return $this;
+  }
+
+  public function removeQuery(?string $key = null) {
+    if ($key === null) {
+      $this->query = [];
+    } elseif (idx($this->query, $key)) {
+      unset($this->query[$key]);
+    }
     return $this;
   }
 
@@ -384,9 +409,22 @@ class BaseNotFoundController extends BaseController {
       BaseParam::StringType('path_info')
     ];
   }
+
   public function render() {
     $this->status(404);
-    echo <h1>Not Found: {$this->param('path_info')}</h1>;
+    return <h1>Not Found: {$this->param('path_info')}</h1>;
+  }
+
+  public function renderJSON(): BaseJSONView {
+    $view = new BaseJSONView();
+    $view->error('Invalid endpoint: ' . $this->param('path_info'), 404);
+    return $view;
+  }
+
+  public function renderJSONError($e): BaseJSONView {
+    $view = new BaseJSONView();
+    $view->error('Invalid endpoint: ' . $this->param('path_info'), 404);
+    return $view;
   }
 }
 
@@ -444,6 +482,7 @@ class ApiRunner {
       if (!preg_match('#^' . $patternAsRegex . '$#', $resourceUri, $paramValues)) {
           return false;
       }
+
       foreach ($this->paramNames as $name) {
           if (isset($paramValues[$name])) {
               if (isset($this->paramNamesPath[ $name ])) {
@@ -468,9 +507,9 @@ class ApiRunner {
       if (isset($this->conditions[ $m[1] ])) {
           return '(?P<' . $m[1] . '>' . $this->conditions[ $m[1] ] . ')';
       }
+
       if (substr($m[0], -1) === '+') {
           $this->paramNamesPath[ $m[1] ] = 1;
-
           return '(?P<' . $m[1] . '>.+)';
       }
 
@@ -478,9 +517,9 @@ class ApiRunner {
   }
 
   protected function selectController() {
-    foreach ($this->map as $route => $controller) {
-      if ($this->matches($this->getPathInfo(), $route)) {
-        return $controller;
+    foreach ($this->map as $v) {
+      if ($this->matches($this->getPathInfo(), $v['route'])) {
+        return $v['controller'];
       }
     }
     return false;
@@ -590,6 +629,70 @@ class ApiRunner {
       $this->canAccessRestrictedEndpoints());
 
     return $controller;
+  }
+}
+
+class BaseRouter {
+  static protected array $map;
+  static protected array $params = [];
+
+  static public function setMap(array $map): void {
+    self::$map = $map;
+  }
+
+  static private function getRouteByName(string $routeName): ?string {
+    if (isset(self::$map[$routeName])) {
+      return self::$map[$routeName]['route'];
+    }
+    return null;
+  }
+
+  static public function getParameterizedRoute(
+    string $route, mixed $matches, mixed $params
+  ): URL {
+    foreach ($matches[0] as $m) {
+      $isMandatoryParam = $m[0] === '/' ? true : false;
+      $paramName = $isMandatoryParam
+        ? str_replace('/:', '', $m)
+        : preg_replace('/\(\/:(\w+)\)/i', '$1', $m);
+      $param = idx($params, $paramName);
+      self::$params[$paramName] = $param;
+      $find = $isMandatoryParam && $param
+        ? ':' . $paramName
+        : '(/:' . $paramName . ')';
+      $replace = !$isMandatoryParam && $param
+        ? '/' . $param : $param;
+
+      if ($isMandatoryParam && !$param) {
+        invariant_violation($paramName . ' is a mandatory parameter.');
+      }
+      $route = str_replace($find, $replace, $route);
+    }
+    return new URL($route);
+  }
+
+  static public function addOptionalParameter(
+    URL $url, mixed $optionalParams
+  ): URL {
+    $paramsKeys = array_keys(self::$params);
+    $optionalParamsKeys = array_keys($optionalParams);
+    $diffArray = array_diff($optionalParamsKeys, $paramsKeys);
+    foreach ($diffArray as $p) {
+      $url->query($p, $optionalParams[$p]);
+    }
+    return $url;
+  }
+
+  static public function generateUrl(string $routeName,
+    ?mixed $params
+  ): URL {
+    $route = self::getRouteByName($routeName);
+    preg_match_all('#\(?\/:\w+\)?#', $route, $matches);
+    $url = self::getParameterizedRoute($route, $matches, $params);
+    if ($params) {
+      $url = self::addOptionalParameter($url, $params);
+    }
+    return $url;
   }
 }
 
@@ -712,14 +815,20 @@ class MongoInstance {
         $db_url = str_replace($auth_pattern, '', $db_url);
       }
 
-    } elseif (isset($_SERVER['MONGOHQ_URL'])) {
-      $db_url = $_SERVER['MONGOHQ_URL'];
+    } elseif (isset($_ENV['MONGOHQ_URL'])) {
+      $db_url = $_ENV['MONGOHQ_URL'];
       $parts = parse_url($db_url);
       if (idx($parts, 'user') && idx($parts, 'pass')) {
         $auth_pattern = sprintf('%s:%s@', $parts['user'], $parts['pass']);
         $db_url = str_replace($auth_pattern, '', $db_url);
       }
     } else {
+      l('MongoInstance: No MONGOHQ_URL specified or invalid collection.');
+      l(sprintf('MONGOHQ_URL: %s, collection: %s',
+        idx($_SERVER, 'MONGOHQ_URL'),
+        $collection));
+      l('_ENV[MONGOHQ_URL]:', $_ENV['MONGOHQ_URL']);
+
       throw new Exception('No MONGOHQ_URL specified');
       return null;
     }
@@ -868,13 +977,13 @@ class BaseTranslationHolder {
     if (static::$projects == null) {
       static::loadProject($locale, $project);
     }
-
+    $key = trim($key);
     return idx(static::$projects[$locale][$project], $key, $key);
   }
 }
 
 class :t extends :x:primitive {
-  category %flow;
+  category %phrase, %flow;
   children (pcdata | %translation)*;
   attribute
     string locale,
@@ -882,13 +991,13 @@ class :t extends :x:primitive {
     string description;
 
   public function init() {
-    invariant(
-      $this->getAttribute('locale') || idx($_ENV, 'APPLICATION_DEFAULT_LOCALE'),
-      'No default locale provided');
-
-    $this->locale = $this->getAttribute('locale') ?
-      $this->getAttribute('locale') :
-      $_ENV['APPLICATION_DEFAULT_LOCALE'];
+    if ($this->getAttribute('locale')) {
+      $this->locale = $this->getAttribute('locale');
+    } elseif (idx($_ENV, 'LOCALE')) {
+      $this->locale = $_ENV['LOCALE'];
+    } else {
+      invariant_violation('No default locale provided');
+    }
   }
 
   public function stringify() {
