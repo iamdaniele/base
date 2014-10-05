@@ -22,6 +22,10 @@ function l() {
     $backtrace['file'], $backtrace['line'], $message);
 
   fwrite($resource, $log);
+  if (idx($_ENV, 'APPLICATION_ENV') !== 'prod' &&
+    idx($_ENV, 'CHROME_LOGGING_ENABLED')) {
+    ChromePhp::log($log);
+  }
   // file_put_contents($_ENV['BASE_LOG_FILE'], $log, FILE_APPEND);
 }
 
