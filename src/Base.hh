@@ -648,22 +648,18 @@ class ApiRunner {
 }
 
 class BaseRouter {
-  static protected array $map;
   static protected array $params = [];
 
-  static public function setMap(array $map): void {
-    self::$map = $map;
-  }
-
   static private function getRouteByName(string $routeName): ?string {
-    if (isset(self::$map[$routeName])) {
-      return self::$map[$routeName]['route'];
+    global $map;
+    if (isset($map[$routeName])) {
+      return $map[$routeName]['route'];
     }
     return null;
   }
 
   static public function getParameterizedRoute(
-    string $route, mixed $matches, mixed $params
+    string $route, mixed $matches, $params = []
   ): URL {
     foreach ($matches[0] as $m) {
       $isMandatoryParam = $m[0] === '/' ? true : false;
@@ -699,7 +695,7 @@ class BaseRouter {
   }
 
   static public function generateUrl(string $routeName,
-    ?mixed $params
+    $params = []
   ): URL {
     $route = self::getRouteByName($routeName);
     preg_match_all('#\(?\/:\w+\)?#', $route, $matches);
