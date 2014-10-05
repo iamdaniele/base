@@ -28,4 +28,5 @@ require_once 'BaseStore.hh';
 require_once 'BaseWorker.hh';
 require_once 'Base.hh';
 
+register_shutdown_function('fatal_log');
 Base::registerAutoloader();

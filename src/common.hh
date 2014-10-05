@@ -1,6 +1,5 @@
 <?hh
 function l() {
-  global $app;
   $args = func_get_args();
   $output = array();
   ob_start();
@@ -16,17 +15,47 @@ function l() {
   $message = implode(' ', $output) . PHP_EOL;
   $backtrace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS);
   $backtrace = array_shift($backtrace);
+
+  logger($message, $backtrace['file'], $backtrace['line']);
+}
+
+function logger($message, $file = null, $line = null) {
   $resource = fopen($_ENV['BASE_LOG_FILE'], 'a+w');
-  // $log = sprintf('[%s %s:%d] %s', date('r'), $backtrace['file'], $backtrace['line'], $log);
   $log = sprintf('[%s:%d] %s',
-    $backtrace['file'], $backtrace['line'], $message);
+    $file, $line, $message);
 
   fwrite($resource, $log);
   if (idx($_ENV, 'APPLICATION_ENV') !== 'prod' &&
     idx($_ENV, 'CHROME_LOGGING_ENABLED')) {
     ChromePhp::log($log);
   }
-  // file_put_contents($_ENV['BASE_LOG_FILE'], $log, FILE_APPEND);
+}
+
+function fatal_log() {
+  $errfile = "unknown file";
+  $errstr = "shutdown";
+  $errno = E_CORE_ERROR;
+  $errline = 0;
+
+  $error = error_get_last();
+
+  if ($error !== NULL) {
+    $errno = $error["type"];
+    $errfile = $error["file"];
+    $errline = $error["line"];
+    $errstr = $error["message"];
+  }
+
+  switch ($errno) {
+    case 16777217:
+      $error_type = 'Fatal error';
+      break;
+    default:
+      $error_type = 'Error ' . $errno;
+  }
+
+  $message = sprintf('%s: %s', $error_type, $errstr);
+  logger($message, $errfile, $errline);
 }
 
 function idx($array, $key, $default = null) {
