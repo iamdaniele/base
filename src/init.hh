@@ -1,4 +1,6 @@
 <?hh
+chdir(__DIR__);
+chdir(realpath('../../../../'));
 
 if (array_key_exists('APPLICATION_ENV', $_ENV) &&
   $_ENV['APPLICATION_ENV'] != 'prod') {
