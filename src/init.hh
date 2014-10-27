@@ -30,5 +30,8 @@ require_once 'BaseStore.hh';
 require_once 'BaseWorker.hh';
 require_once 'Base.hh';
 
-register_shutdown_function('fatal_log');
+if (array_key_exists('APPLICATION_ENV', $_ENV) &&
+  $_ENV['APPLICATION_ENV'] != 'prod') {
+  register_shutdown_function('fatal_log');
+}
 Base::registerAutoloader();
