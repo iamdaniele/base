@@ -53,6 +53,7 @@ function fatal_log() {
     case E_NOTICE:
       $error_type = 'Notice';
       break;
+    case 16: return;
     default:
       $error_type = 'Error ' . $errno;
   }
