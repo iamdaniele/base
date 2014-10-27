@@ -325,7 +325,12 @@ class URL {
       return idx($this->url, 'port', null);
     }
 
-    $this->url['port'] = $port;
+    if ($port === 0) {
+      unset($this->url['port']);
+    } else {
+      $this->url['port'] = $port;
+    }
+
     return $this;
   }
 
