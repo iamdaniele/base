@@ -285,6 +285,10 @@ class URL {
     }
   }
 
+  public static function route(string $name, array $params = []): URL {
+    return BaseRouter::generateUrl($name, $params);
+  }
+
   protected function buildCurrentURL(): string {
     return sprintf('%s://%s%s%s',
       idx($_SERVER, 'HTTPS') ? 'https' : 'http',
