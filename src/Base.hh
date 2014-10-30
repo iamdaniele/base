@@ -291,7 +291,10 @@ class URL {
 
   protected function buildCurrentURL(): string {
     return sprintf('%s://%s%s%s',
-      idx($_SERVER, 'HTTPS') ? 'https' : 'http',
+      idx($_SERVER, 'HTTPS') ||
+      idx($_SERVER, 'HTTP_X_FORWARDED_PROTO') === 'https' ?
+        'https' :
+        'http',
       idx($_SERVER, 'SERVER_NAME'),
       idx($_SERVER, 'SERVER_PORT') ? ':' . $_SERVER['SERVER_PORT'] : '',
       idx($_SERVER, 'REQUEST_URI'));
