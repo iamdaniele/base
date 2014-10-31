@@ -272,13 +272,14 @@ class URL {
   protected array $url;
   protected array $query;
   public function __construct(?string $url = null) {
-    if ($url === null) {
-      $url = $this->buildCurrentURL();
+    $current_url = parse_url($this->buildCurrentURL());
+    $parsed_url = [];
+    if ($url !== null) {
+      $parsed_url = parse_url($url);
+      invariant($parsed_url !== false, 'Invalid URL');
     }
-    $parsed_url = parse_url($url);
-    invariant($parsed_url !== false, 'Invalid URL');
 
-    $this->url = $parsed_url;
+    $this->url = array_merge($current_url, $parsed_url);
 
     if (idx($this->url, 'query')) {
       parse_str($this->url['query'], $this->query);
@@ -291,12 +292,11 @@ class URL {
 
   protected function buildCurrentURL(): string {
     return sprintf('%s://%s%s%s',
-      idx($_SERVER, 'HTTPS') ||
-      idx($_SERVER, 'HTTP_X_FORWARDED_PROTO') === 'https' ?
-        'https' :
-        'http',
-      idx($_SERVER, 'SERVER_NAME'),
-      idx($_SERVER, 'SERVER_PORT') ? ':' . $_SERVER['SERVER_PORT'] : '',
+      'https',
+      EnvProvider::get('SERVER_NAME'),
+      EnvProvider::has('SERVER_PORT') ?
+        ':' . EnvProvider::get('SERVER_PORT') :
+        '',
       idx($_SERVER, 'REQUEST_URI'));
   }
 
@@ -1021,8 +1021,8 @@ class :t extends :x:primitive {
   public function init() {
     if ($this->getAttribute('locale')) {
       $this->locale = $this->getAttribute('locale');
-    } elseif (idx($_ENV, 'LOCALE')) {
-      $this->locale = $_ENV['LOCALE'];
+    } elseif (EnvProvider::getLocale()) {
+      $this->locale = EnvProvider::getLocale();
     } else {
       invariant_violation('No default locale provided');
     }
@@ -1071,6 +1071,6 @@ class :t:p extends :x:primitive {
     string name @required;
 
   public function stringify() {
-    return $this->getChildren()[0];
+    return idx($this->getChildren(), 0);
   }
 }

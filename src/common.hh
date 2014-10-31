@@ -26,7 +26,8 @@ function logger($message, $file = null, $line = null) {
 
   fwrite($resource, $log);
   if (idx($_ENV, 'APPLICATION_ENV') !== 'prod' &&
-    idx($_ENV, 'CHROME_LOGGING_ENABLED')) {
+    idx($_ENV, 'CHROME_LOGGING_ENABLED') &&
+    idx($_ENV, 'WORKER_SCRIPT') == false) {
     ChromePhp::log($log);
   }
 }
