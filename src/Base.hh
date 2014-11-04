@@ -294,7 +294,9 @@ class URL {
     return sprintf('%s://%s%s%s',
       'https',
       EnvProvider::get('SERVER_NAME'),
-      EnvProvider::has('SERVER_PORT') ?
+      EnvProvider::has('SERVER_PORT') &&
+      EnvProvider::get('SERVER_PORT') != 443 &&
+      EnvProvider::get('SERVER_PORT') != 80 ?
         ':' . EnvProvider::get('SERVER_PORT') :
         '',
       idx($_SERVER, 'REQUEST_URI'));
