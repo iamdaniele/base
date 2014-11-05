@@ -291,13 +291,20 @@ class URL {
   }
 
   protected function buildCurrentURL(): string {
+    $protocol = idx($_SERVER, 'REQUEST_SCHEME', 'https');
+
+    $server_port_key =
+      $protocol === 'https' ?
+      'HTTPS_SERVER_PORT' :
+      'HTTP_SERVER_PORT';
+
     return sprintf('%s://%s%s%s',
-      'https',
+      $protocol,
       EnvProvider::get('SERVER_NAME'),
-      EnvProvider::has('SERVER_PORT') &&
-      EnvProvider::get('SERVER_PORT') != 443 &&
-      EnvProvider::get('SERVER_PORT') != 80 ?
-        ':' . EnvProvider::get('SERVER_PORT') :
+      EnvProvider::has($server_port_key) &&
+      EnvProvider::get($server_port_key) != 80 &&
+      EnvProvider::get($server_port_key) != 443 ?
+        ':' . EnvProvider::get($server_port_key) :
         '',
       idx($_SERVER, 'REQUEST_URI'));
   }
