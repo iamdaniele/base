@@ -797,8 +797,8 @@ class Base {
         'Model' => 'models',
         'Store' => 'storage',
         'Trait' => 'traits',
-        'Enum' => 'const',
-        'Const' => 'const',
+        'Enum' => 'enums',
+        'Type' => 'enums',
         'Exception' => 'exceptions',
         'Controller' => 'controllers',
         'Worker' => 'workers',
@@ -814,7 +814,6 @@ class Base {
         case 'BaseQueueFilesStore':
         case 'BaseQueueFileModel':
         case 'BaseStore':
-        case 'BaseEnum':
         case 'BaseWorkerScheduler':
         case 'BaseWorker':
         case 'BaseListener':
