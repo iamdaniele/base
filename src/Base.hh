@@ -277,9 +277,15 @@ class URL {
     if ($url !== null) {
       $parsed_url = parse_url($url);
       invariant($parsed_url !== false, 'Invalid URL');
+      if (!(idx($parsed_url, 'scheme') && idx($parsed_url, 'host'))) {
+        $this->url = array_merge($current_url, $parsed_url);
+      } else {
+        $this->url = $parsed_url;
+      }
+    } else {
+      $this->url = $current_url;
     }
 
-    $this->url = array_merge($current_url, $parsed_url);
 
     if (idx($this->url, 'query')) {
       parse_str($this->url['query'], $this->query);
