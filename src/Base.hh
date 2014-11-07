@@ -300,6 +300,10 @@ class URL {
   protected function buildCurrentURL(): string {
     $protocol = idx($_SERVER, 'REQUEST_SCHEME', 'https');
 
+    if (idx($_SERVER, 'HTTP_X_FORWARDED_PROTO') === 'https') {
+      $protocol = 'https';
+    }
+
     $server_port_key =
       $protocol === 'https' ?
       'HTTPS_SERVER_PORT' :
