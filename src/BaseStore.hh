@@ -311,6 +311,24 @@ abstract class BaseModel {
     }
   }
 
+  public function __set($name, $value) {
+    if (get_called_class() !== 'BaseModel') {
+      invariant_violation(
+        'Cannot set field %s in %s: field does not exist',
+        $name,
+        get_called_class());
+    }
+  }
+
+  public function __get($name) {
+    if (get_called_class() !== 'BaseModel') {
+      invariant_violation(
+        'Cannot set field %s in %s: field does not exist',
+        $name,
+        get_called_class());
+    }
+  }
+
   public function document(): array<string, mixed> {
     return get_object_vars($this);
   }
