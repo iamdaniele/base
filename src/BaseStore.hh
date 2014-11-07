@@ -20,11 +20,7 @@ abstract class BaseStore {
   }
 
   protected static function i() {
-    if (!static::$instance) {
-      static::$instance = new static();
-    }
-
-    return static::$instance;
+    return new static();
   }
 
   public function db() {
