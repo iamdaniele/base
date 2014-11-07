@@ -3,6 +3,8 @@ abstract class BaseStore {
   protected $class;
   protected $db;
 
+  protected static $instance;
+
   public function __construct(string $collection = null, string $class = null) {
     if (defined('static::COLLECTION') && defined('static::MODEL')) {
       $collection = static::COLLECTION;
@@ -16,16 +18,24 @@ abstract class BaseStore {
     $this->db = MongoInstance::get($collection);
   }
 
+  protected static function i() {
+    if (!self::$instance) {
+      self::$instance = new static();
+    }
+
+    return self::$instance;
+  }
+
   public function db() {
-    return $this->db;
+    return self::i()->db;
   }
 
   public function find(
     array $query = [],
     ?int $skip = 0,
     ?int $limit = 0): BaseModel {
-    $docs = $this->db->find($query);
-    $class = $this->class;
+    $docs = self::i()->db->find($query);
+    $class = self::i()->class;
 
     if ($skip !== null) {
       $docs = $docs->skip($skip);
@@ -41,31 +51,32 @@ abstract class BaseStore {
   }
 
   public function distinct(string $key, array $query = []) {
-    $docs = $this->db->distinct($key, $query);
+    $docs = self::i()->db->distinct($key, $query);
     return !is_array($docs) ? [] : $docs;
   }
 
   public function findOne(array $query): ?BaseModel {
-    $doc = $this->db->findOne($query);
-    $class = $this->class;
+    $doc = self::i()->db->findOne($query);
+    $class = self::i()->class;
     return $doc ? new $class($doc) : null;
   }
 
   public function findById(MongoId $id): ?BaseModel {
-    return $this->findOne(['_id' => $id]);
+    return self::i()->findOne(['_id' => $id]);
   }
 
   public function count(array $query): int {
-    return $this->db->count($query);
+    return self::i()->db->count($query);
   }
 
   protected function ensureType(BaseModel $item): bool {
-    return class_exists($this->class) && is_a($item, $this->class);
+    return class_exists(self::i()->class) && is_a($item, $this->class);
   }
 
   public function remove(BaseModel $item) {
-    if (!$this->ensureType($item)) {
-      throw new Exception('Invalid object provided, expected ' . $this->class);
+    if (!self::i()->ensureType($item)) {
+      throw new Exception(
+        'Invalid object provided, expected ' . self::i()->class);
       return false;
     }
 
@@ -75,7 +86,7 @@ abstract class BaseStore {
 
     try {
       if ($item->getID()) {
-        $this->db->remove($item->document());
+        self::i()->db->remove($item->document());
         return true;
       } else {
         return false;
@@ -88,7 +99,7 @@ abstract class BaseStore {
 
   public function removeWhere($query = []) {
     try {
-      $this->db->remove($query);
+      self::i()->db->remove($query);
       return true;
     } catch (MongoException $e) {
       l('MongoException:', $e->getMessage());
@@ -97,12 +108,12 @@ abstract class BaseStore {
   }
 
   public function removeById($id) {
-    return $this->removeWhere(['_id' => mid($id)]);
+    return self::i()->removeWhere(['_id' => mid($id)]);
   }
 
   public function aggregate(BaseAggregation $aggregation) {
     return call_user_func_array(
-      [$this->db, 'aggregate'],
+      [self::i()->db, 'aggregate'],
       $aggregation->getPipeline());
   }
 
@@ -113,7 +124,7 @@ abstract class BaseStore {
     array $config = null) {
 
     $options = [
-      'mapreduce' => $this->collection,
+      'mapreduce' => self::i()->collection,
       'map' => $map,
       'reduce' => $reduce,
       'out' => ['inline' => true]];
@@ -141,8 +152,9 @@ abstract class BaseStore {
   }
 
   public function save(BaseModel &$item) {
-    if (!$this->ensureType($item)) {
-      throw new Exception('Invalid object provided, expected ' . $this->class);
+    if (!self::i()->ensureType($item)) {
+      throw new Exception(
+        'Invalid object provided, expected ' . self::i()->class);
       return false;
     }
 
@@ -155,10 +167,10 @@ abstract class BaseStore {
         $id = new MongoId();
         $item->setID($id);
         $document = $item->document();
-        $this->db->insert($document);
+        self::i()->db->insert($document);
       } else {
         $document = $item->document();
-        $this->db->save($document);
+        self::i()->db->save($document);
       }
       return true;
     } catch (MongoException $e) {
