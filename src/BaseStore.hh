@@ -59,8 +59,6 @@ abstract class BaseStore {
   public function findOne(array $query): ?BaseModel {
     $doc = static::i()->db->findOne($query);
     $class = static::i()->class;
-    l($query);
-    l($class);
     return $doc ? new $class($doc) : null;
   }
 
