@@ -931,6 +931,16 @@ abstract class :base:layout extends :x:element {
 }
 
 class :base:widget extends :x:element {
+  public function init() {
+    $widget_name = self::class2element(get_called_class());
+    $widget_name = str_replace('widget:', '', $widget_name);
+    $this->setAttribute('data-widget', $widget_name);
+  }
+
+  public function getName(): string {
+    return $this->getAttribute('data-widget');
+  }
+
   public final function css(mixed $url): void {
     invariant(is_string($url) || is_array($url), 'url must be array or string');
 
