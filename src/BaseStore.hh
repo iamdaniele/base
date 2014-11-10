@@ -302,7 +302,7 @@ class BaseAggregation {
 
 abstract class BaseModel {
   public ?MongoId $_id;
-  private string __model;
+  private string $__model;
   public function __construct(array<string, mixed> $document = []) {
     $this->__model = get_called_class();
     foreach ($document as $key => $value) {
