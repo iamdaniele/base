@@ -302,8 +302,9 @@ class BaseAggregation {
 
 abstract class BaseModel {
   public ?MongoId $_id;
+  private string __model;
   public function __construct(array<string, mixed> $document = []) {
-
+    $this->__model = get_called_class();
     foreach ($document as $key => $value) {
       if (property_exists($this, $key)) {
         $this->$key = $key == '_id' ? mid($value) : $value;
