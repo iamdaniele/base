@@ -1046,10 +1046,7 @@ class BaseLayoutHelper {
     $map = array_values($map);
 
     $hash = sha256(implode(':', $map)) . '.' . $type;
-    $file_path =
-      EnvProvider::isProduction() ?
-      getcwd() . '/tmp/' . $hash :
-      sys_get_temp_dir() . '/' . $hash;
+    $file_path = sys_get_temp_dir() . '/' . $hash;
 
     if (!file_exists($file_path)) {
       $content = '';
