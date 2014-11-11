@@ -969,31 +969,129 @@ class :base:widget extends :x:element {
 }
 
 class BaseLayoutHelper {
-  protected static array $javascripts;
-  protected static array $stylesheets;
+  protected static array $resources;
+  protected static array $remote_javascripts;
+  protected static array $local_javascripts;
+  protected static array $remote_stylesheets;
+  protected static array $local_stylesheets;
 
-  public static function addJavascript(:script $javascript): void {
-    $url = $javascript->getAttribute('src');
-
-    if (!idx(self::$javascripts, $url)) {
-      self::$javascripts[$url] = $javascript;
+  protected static function init() {
+    if (!self::$resources) {
+      self::$resources = [
+        'layout' => [
+          'local' => [
+            'css' => [],
+            'js' => []],
+          'remote' => [
+            'css' => [],
+            'js' => []]],
+        'widget' => [
+          'local' => [
+            'css' => [],
+            'js' => []],
+          'remote' => [
+            'css' => [],
+            'js' => []]],
+      ];
     }
   }
 
-  public static function addStylesheet(:link $stylesheet): void {
+  public static function addJavascript(
+    :script $javascript,
+    bool $layout = false): void {
+    self::init();
+    $url = $javascript->getAttribute('src');
+
+    $element = $layout ? 'layout' : 'widget';
+    $origin = self::isLocal($url) ? 'local' : 'remote';
+
+    self::$resources[$element][$origin]['js'][$url] = $javascript;
+  }
+
+  public static function addStylesheet(
+    :link $stylesheet,
+    bool $layout = false): void {
+    self::init();
     $url = $stylesheet->getAttribute('href');
 
-    if (!idx(self::$stylesheets, $url)) {
-      self::$stylesheets[$url] = $stylesheet;
+    $element = $layout ? 'layout' : 'widget';
+    $origin = self::isLocal($url) ? 'local' : 'remote';
+
+    self::$resources[$element][$origin]['css'][$url] = $stylesheet;
+  }
+
+  protected static function isLocal(string $url): bool {
+    return !!(preg_match('/^(https?:)?(\/\/)/', $url, []) === 0);
+  }
+
+  protected static function hash(string $type): void {
+    switch ($type) {
+      case 'js':
+        $array = array_merge(
+          array_keys(self::$resources['layout']['local']['js']),
+          array_keys(self::$resources['widget']['local']['js']));
+        break;
+      case 'css':
+        $array = array_merge(
+          array_keys(self::$resources['layout']['local']['css']),
+          array_keys(self::$resources['widget']['local']['css']));
+        break;
     }
+
+    $map = $array;
+
+    // Preserve file order so that JS and CSS can respect loading priority.
+    // Layout resources go first.
+    natsort($map);
+    $map = array_values($map);
+
+    $hash = sha256(implode(':', $map)) . '.' . $type;
+    $file_path =
+      EnvProvider::isProduction() ?
+      getcwd() . '/tmp/' . $hash :
+      sys_get_temp_dir() . '/' . $hash;
+
+    if (!file_exists($file_path)) {
+      $content = '';
+      foreach ($array as $file) {
+        $content .= file_get_contents('public/' . $file) . PHP_EOL;
+      }
+      file_put_contents($file_path, $content);
+    }
+
+    return URL::route('dynamic_resource', ['type' => $type, 'hash' => $hash]);
   }
 
   public static function javascripts(): array<:script> {
-    return self::$javascripts === null ? [] : self::$javascripts;
+    self::init();
+    if (EnvProvider::get('ENABLE_RESOURCES_COMPRESSION') == 1) {
+      return array_merge(
+        self::$resources['layout']['remote']['js'],
+        self::$resources['widget']['remote']['js'],
+        [<script src={self::hash('js')} />]);
+    } else {
+      return array_merge(
+        self::$resources['layout']['remote']['js'],
+        self::$resources['widget']['remote']['js'],
+        self::$resources['layout']['local']['js'],
+        self::$resources['widget']['local']['js']);
+    }
   }
 
   public static function stylesheets(): array<:link> {
-    return self::$stylesheets === null ? [] : self::$stylesheets;
+    self::init();
+    if (EnvProvider::get('ENABLE_RESOURCES_COMPRESSION') == 1) {
+      return array_merge(
+        self::$resources['layout']['remote']['css'],
+        self::$resources['widget']['remote']['css'],
+        [<link rel="stylesheet" href={self::hash('css')} />]);
+    } else {
+      return array_merge(
+        self::$resources['layout']['remote']['css'],
+        self::$resources['widget']['remote']['css'],
+        self::$resources['layout']['local']['css'],
+        self::$resources['widget']['local']['css']);
+    }
   }
 }
 
