@@ -324,7 +324,7 @@ abstract class BaseModel {
   public function __get($name) {
     if (get_called_class() !== 'BaseModel') {
       invariant_violation(
-        'Cannot set field %s in %s: field does not exist',
+        'Cannot get field %s in %s: field does not exist',
         $name,
         get_called_class());
     }
