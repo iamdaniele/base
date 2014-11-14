@@ -5,7 +5,9 @@ abstract class BaseStore {
 
   protected static $instance;
 
-  public function __construct(string $collection = null, string $class = null) {
+  public function __construct(
+    ?string $collection = null,
+    ?string $class = null) {
     if (defined('static::COLLECTION') && defined('static::MODEL')) {
       $collection = static::COLLECTION;
       $class = static::MODEL;
@@ -117,8 +119,8 @@ abstract class BaseStore {
   public function mapReduce(
     MongoCode $map,
     MongoCode $reduce,
-    array $query = null,
-    array $config = null) {
+    ?array $query = null,
+    ?array $config = null) {
 
     $options = [
       'mapreduce' => static::i()->collection,
@@ -359,7 +361,7 @@ abstract class BaseModel {
 
     // $method = preg_replace('/^(get|set|remove|has)/i', '', $method);
     $method = preg_replace('/^(get|set)/i', '', $method);
-
+    $matches = [];
     preg_match_all(
       '!([A-Z][A-Z0-9]*(?=$|[A-Z][a-z0-9])|[A-Za-z][a-z0-9]+)!',
       $method,
@@ -390,4 +392,8 @@ abstract class BaseModel {
         return $this->$field;
     }
   }
+}
+
+class BaseRef<T> {
+
 }
