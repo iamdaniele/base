@@ -84,7 +84,7 @@ abstract class BaseStore {
     }
 
     try {
-      if ($item->getID()) {
+      if ($item->_id === null) {
         static::i()->db->remove($item->document());
         return true;
       } else {
@@ -162,9 +162,9 @@ abstract class BaseStore {
     }
 
     try {
-      if (!$item->getID()) {
+      if ($item->_id === null) {
         $id = new MongoId();
-        $item->setID($id);
+        $item->_id = $id;
         $document = $item->document();
         static::i()->db->insert($document);
       } else {
@@ -318,13 +318,15 @@ abstract class BaseModel {
             $model->_id = idx($value, '_id');
             $this->$key = BaseRef::fromModel($model);
           } else {
-            $refs = $value;
+            $refs = [];
             foreach ($value as $v) {
               if (idx($v, '__ref')) {
                 $model_name = idx($v, '__model');
                 $model = new $model_name();
-                $model->_id = idx($vv, '_id');
+                $model->_id = idx($v, '_id');
                 $refs[] = BaseRef::fromModel($model);
+              } else {
+                $refs[] = $v;
               }
             }
 
@@ -368,12 +370,8 @@ abstract class BaseModel {
     return $document;
   }
 
-  final public function getID(): ?MongoId {
-    return $this->_id;
-  }
-
-  final public function setID(MongoId $_id): void {
-    $this->_id = $_id;
+  final public function reference(): BaseRef {
+    return BaseRef::fromModel($this);
   }
 }
 
@@ -403,24 +401,30 @@ class BaseRef<T as BaseModel> {
     invariant_violation('Cannot set attributes on a reference');
   }
 
-  public function __get($key) {
-    if ($this->model === null) {
-      $store = MongoInstance::get($this->__collection);
-      $doc = $store->findOne(['_id' => $this->_id]);
-      if ($doc === null) {
-        ls('Broken reference: %s:%s', $this->__collection, $this->_id);
-        return null;
-      }
-      $model = $this->__model;
-      $this->model = new $model($doc);
-    }
-
+  public function __get($key): mixed {
     // no idx() here, will trust BaseModel's __get()
-    return $this->model->$key;
+    return $this->model() !== null ? $this->model->$key : null;
   }
 
   public static function fromModel(T $model): BaseRef<T> {
     return new self<T>($model);
+  }
+
+  public function model(): ?T {
+    if ($this->model) {
+      return $this->model;
+    }
+
+    $store = MongoInstance::get($this->__collection);
+    $doc = $store->findOne(['_id' => $this->_id]);
+    if ($doc === null) {
+      ls('Broken reference: %s:%s', $this->__collection, $this->_id);
+      return null;
+    }
+
+    $model = $this->__model;
+    $this->model = new $model($doc);
+    return $this->model;
   }
 
   public function document(): array<string, mixed> {
