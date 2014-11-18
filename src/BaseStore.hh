@@ -312,7 +312,11 @@ abstract class BaseModel {
         $this->$key = $key == '_id' ? mid($value) : $value;
 
         if (is_array($value)) {
-          if (idx($value, '__ref')) {
+          if (idx($value, '__model') && !idx($value, '__ref')) {
+            $model_name = idx($value, '__model');
+            $model = new $model_name($value);
+            $this->$key = $model;
+          } elseif (idx($value, '__ref')) {
             $model_name = idx($value, '__model');
             $model = new $model_name();
             $model->_id = idx($value, '_id');
@@ -320,7 +324,11 @@ abstract class BaseModel {
           } else {
             $refs = [];
             foreach ($value as $v) {
-              if (idx($v, '__ref')) {
+              if (idx($v, '__model') && !idx($v, '__ref')) {
+                $model_name = idx($v, '__model');
+                $model = new $model_name($v);
+                $refs[] = $model;
+              } elseif (idx($v, '__ref')) {
                 $model_name = idx($v, '__model');
                 $model = new $model_name();
                 $model->_id = idx($v, '_id');
@@ -358,11 +366,13 @@ abstract class BaseModel {
   public function document(): array<string, mixed> {
     $document = get_object_vars($this);
     foreach ($document as &$item) {
-      if ($item instanceof BaseRef) {
+      if ($item instanceof BaseRef || $item instanceof BaseModel) {
         $item = $item->document();
       } elseif (is_array($item)) {
         foreach ($item as &$i) {
-          $i = $i instanceof BaseRef ? $i->document() : $i;
+          $i = $i instanceof BaseRef || $i instanceof BaseModel ?
+            $i->document() :
+            $i;
         }
       }
     }
