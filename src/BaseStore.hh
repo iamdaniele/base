@@ -323,18 +323,18 @@ abstract class BaseModel {
             $this->$key = BaseRef::fromModel($model);
           } else {
             $refs = [];
-            foreach ($value as $v) {
+            foreach ($value as $k => $v) {
               if (idx($v, '__model') && !idx($v, '__ref')) {
                 $model_name = idx($v, '__model');
                 $model = new $model_name($v);
-                $refs[] = $model;
+                $refs[$k] = $model;
               } elseif (idx($v, '__ref')) {
                 $model_name = idx($v, '__model');
                 $model = new $model_name();
                 $model->_id = idx($v, '_id');
-                $refs[] = BaseRef::fromModel($model);
+                $refs[$k] = BaseRef::fromModel($model);
               } else {
-                $refs[] = $v;
+                $refs[$k] = $v;
               }
             }
 
