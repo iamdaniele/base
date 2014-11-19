@@ -21,7 +21,7 @@ abstract class BaseStore {
     static::$instance = $this;
   }
 
-  protected static function i() {
+  protected static function i(): this {
     return new static();
   }
 
@@ -84,7 +84,7 @@ abstract class BaseStore {
     }
 
     try {
-      if ($item->getID()) {
+      if ($item->_id === null) {
         static::i()->db->remove($item->document());
         return true;
       } else {
@@ -106,8 +106,8 @@ abstract class BaseStore {
     }
   }
 
-  public function removeById($id) {
-    return static::i()->removeWhere(['_id' => mid($id)]);
+  public function removeById(MongoId $id) {
+    return static::i()->removeWhere(['_id' => $id]);
   }
 
   public function aggregate(BaseAggregation $aggregation) {
@@ -162,9 +162,9 @@ abstract class BaseStore {
     }
 
     try {
-      if (!$item->getID()) {
+      if ($item->_id === null) {
         $id = new MongoId();
-        $item->setID($id);
+        $item->_id = $id;
         $document = $item->document();
         static::i()->db->insert($document);
       } else {
@@ -310,6 +310,37 @@ abstract class BaseModel {
     foreach ($document as $key => $value) {
       if (property_exists($this, $key)) {
         $this->$key = $key == '_id' ? mid($value) : $value;
+
+        if (is_array($value)) {
+          if (idx($value, '__model') && !idx($value, '__ref')) {
+            $model_name = idx($value, '__model');
+            $model = new $model_name($value);
+            $this->$key = $model;
+          } elseif (idx($value, '__ref')) {
+            $model_name = idx($value, '__model');
+            $model = new $model_name();
+            $model->_id = idx($value, '_id');
+            $this->$key = BaseRef::fromModel($model);
+          } else {
+            $refs = [];
+            foreach ($value as $v) {
+              if (idx($v, '__model') && !idx($v, '__ref')) {
+                $model_name = idx($v, '__model');
+                $model = new $model_name($v);
+                $refs[] = $model;
+              } elseif (idx($v, '__ref')) {
+                $model_name = idx($v, '__model');
+                $model = new $model_name();
+                $model->_id = idx($v, '_id');
+                $refs[] = BaseRef::fromModel($model);
+              } else {
+                $refs[] = $v;
+              }
+            }
+
+            $this->$key = $refs;
+          }
+        }
       }
     }
   }
@@ -333,67 +364,85 @@ abstract class BaseModel {
   }
 
   public function document(): array<string, mixed> {
-    return get_object_vars($this);
-  }
-
-  final public function getID(): ?MongoId {
-    return $this->_id;
-  }
-
-  final public function setID(MongoId $_id): void {
-    $this->_id = $_id;
-  }
-
-  public function __call($method, $args) {
-    if (strpos($method, 'get') === 0) {
-      $op = 'get';
-    } elseif (strpos($method, 'set') === 0) {
-      $op = 'set';
-    } elseif (strpos($method, 'remove') === 0) {
-      $op = 'remove';
-    } elseif (strpos($method, 'has') === 0) {
-      $op = 'has';
-    } else {
-      $e = sprintf('Method "%s" not found in %s', $method, get_called_class());
-      throw new RuntimeException($e);
-      return null;
+    $document = get_object_vars($this);
+    foreach ($document as &$item) {
+      if ($item instanceof BaseRef || $item instanceof BaseModel) {
+        $item = $item->document();
+      } elseif (is_array($item)) {
+        foreach ($item as &$i) {
+          $i = $i instanceof BaseRef || $i instanceof BaseModel ?
+            $i->document() :
+            $i;
+        }
+      }
     }
 
-    // $method = preg_replace('/^(get|set|remove|has)/i', '', $method);
-    $method = preg_replace('/^(get|set)/i', '', $method);
-    $matches = [];
-    preg_match_all(
-      '!([A-Z][A-Z0-9]*(?=$|[A-Z][a-z0-9])|[A-Za-z][a-z0-9]+)!',
-      $method,
-      $matches);
+    return $document;
+  }
 
-    $ret = $matches[0];
-    foreach ($ret as &$match) {
-      $match = $match == strtoupper($match) ?
-        strtolower($match) :
-        lcfirst($match);
-    }
-
-    $field = implode('_', $ret);
-
-    $arg = array_pop($args);
-
-    switch ($op) {
-      case 'set':
-        $this->$field = $arg;
-        return;
-
-      case 'get':
-        invariant(
-          property_exists($this, $field),
-          '%s is not a valid field for %s',
-          $field,
-          get_called_class());
-        return $this->$field;
-    }
+  final public function reference(): BaseRef {
+    return BaseRef::fromModel($this);
   }
 }
 
-class BaseRef<T> {
+class BaseRef<T as BaseModel> {
+  protected bool $__ref;
+  protected string $__model;
+  protected string $__collection;
+  protected MongoId $_id;
+  protected ?T $model;
 
+  public function __construct(T $model) {
+    invariant(
+      $model->_id,
+      'Cannot create a reference from a non-existing document');
+
+    invariant(
+      $model::COLLECTION,
+      'Cannot create a reference from Models with no collections');
+
+    $this->__ref = true;
+    $this->_id = $model->_id;
+    $this->__model = get_class($model);
+    $this->__collection = $model::COLLECTION;
+  }
+
+  public function __set($key, $value) {
+    invariant_violation('Cannot set attributes on a reference');
+  }
+
+  public function __get($key): mixed {
+    // no idx() here, will trust BaseModel's __get()
+    return $this->model() !== null ? $this->model->$key : null;
+  }
+
+  public static function fromModel(T $model): BaseRef<T> {
+    return new self<T>($model);
+  }
+
+  public function model(): ?T {
+    if ($this->model) {
+      return $this->model;
+    }
+
+    $store = MongoInstance::get($this->__collection);
+    $doc = $store->findOne(['_id' => $this->_id]);
+    if ($doc === null) {
+      ls('Broken reference: %s:%s', $this->__collection, $this->_id);
+      return null;
+    }
+
+    $model = $this->__model;
+    $this->model = new $model($doc);
+    return $this->model;
+  }
+
+  public function document(): array<string, mixed> {
+    return [
+      '__ref' => true,
+      '_id' => $this->_id,
+      '__model' => $this->__model,
+      '__collection' => $this->__collection,
+    ];
+  }
 }

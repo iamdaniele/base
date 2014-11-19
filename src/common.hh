@@ -1,5 +1,5 @@
 <?hh
-function l() {
+function l(...) {
   $args = func_get_args();
   $output = array();
   ob_start();
@@ -13,6 +13,15 @@ function l() {
   }
   ob_end_clean();
   $message = implode(' ', $output) . PHP_EOL;
+  $backtrace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS);
+  $backtrace = array_shift($backtrace);
+
+  logger($message, $backtrace['file'], $backtrace['line']);
+}
+
+function ls(...) {
+  $args = func_get_args();
+  $message = call_user_func_array('sprintf', $args);
   $backtrace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS);
   $backtrace = array_shift($backtrace);
 
