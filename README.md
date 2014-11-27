@@ -25,9 +25,10 @@ Features
 Contribute
 ---------------
 Ever wanted to drive a new framework to widespread popularity? Base is the right chance. There are specific areas in which you can make an impact:
+- **Ship new features.** Base is so new that every new feature is a great idea. PR are always welcome.
 - **Test.** We would like to build our custom test framework, and increase our test coverage.
 - **Discussions.** Let's crystallise Base's design principles and grow from there.
-- **Full Hack syntax.** We want Base to run on `strict` only on the long run. Currently, we are using gradual typing and arrays, but we want to be more specific on that.
+- **Go `strict`.** We want Base to run on `strict` only on the long run. Currently, we are using gradual typing and arrays, but we want to be more specific on that.
 - **Documentation.** Although you should be able to understand what Base is doing by simply looking at its code, it would be great to have tutorials and documentation to help people build great apps.
 
 License
