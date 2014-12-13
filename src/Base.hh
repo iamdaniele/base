@@ -1034,7 +1034,7 @@ class BaseLayoutHelper {
     return !!(preg_match('/^(https?:)?(\/\/)/', $url, []) === 0);
   }
 
-  protected static function hash(string $type): void {
+  protected static function hash(string $type): URL {
     switch ($type) {
       case 'js':
         $array = array_merge(
@@ -1140,7 +1140,7 @@ class BaseTranslationHolder {
 }
 
 class :t extends :x:primitive {
-  category %phrase, %flow;
+  category %phrase, %flow, %pcdata;
   children (pcdata | %translation)*;
   attribute
     string locale,
@@ -1155,6 +1155,8 @@ class :t extends :x:primitive {
     } else {
       invariant_violation('No default locale provided');
     }
+
+    $this->setAttribute('project', 'main');
   }
 
   public function stringify() {
