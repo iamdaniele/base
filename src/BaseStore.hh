@@ -3,7 +3,11 @@ abstract class BaseStore {
   protected $class;
   protected $db;
 
-  public function __construct(string $collection = null, string $class = null) {
+  protected static $instance;
+
+  public function __construct(
+    ?string $collection = null,
+    ?string $class = null) {
     if (defined('static::COLLECTION') && defined('static::MODEL')) {
       $collection = static::COLLECTION;
       $class = static::MODEL;
@@ -14,18 +18,23 @@ abstract class BaseStore {
     $this->collection = $collection;
     $this->class = $class;
     $this->db = MongoInstance::get($collection);
+    static::$instance = $this;
+  }
+
+  protected static function i(): this {
+    return new static();
   }
 
   public function db() {
-    return $this->db;
+    return static::i()->db;
   }
 
   public function find(
     array $query = [],
     ?int $skip = 0,
     ?int $limit = 0): BaseModel {
-    $docs = $this->db->find($query);
-    $class = $this->class;
+    $docs = static::i()->db->find($query);
+    $class = static::i()->class;
 
     if ($skip !== null) {
       $docs = $docs->skip($skip);
@@ -41,31 +50,32 @@ abstract class BaseStore {
   }
 
   public function distinct(string $key, array $query = []) {
-    $docs = $this->db->distinct($key, $query);
+    $docs = static::i()->db->distinct($key, $query);
     return !is_array($docs) ? [] : $docs;
   }
 
   public function findOne(array $query): ?BaseModel {
-    $doc = $this->db->findOne($query);
-    $class = $this->class;
+    $doc = static::i()->db->findOne($query);
+    $class = static::i()->class;
     return $doc ? new $class($doc) : null;
   }
 
   public function findById(MongoId $id): ?BaseModel {
-    return $this->findOne(['_id' => $id]);
+    return static::i()->findOne(['_id' => $id]);
   }
 
   public function count(array $query): int {
-    return $this->db->count($query);
+    return static::i()->db->count($query);
   }
 
   protected function ensureType(BaseModel $item): bool {
-    return class_exists($this->class) && is_a($item, $this->class);
+    return class_exists(static::i()->class) && is_a($item, $this->class);
   }
 
   public function remove(BaseModel $item) {
-    if (!$this->ensureType($item)) {
-      throw new Exception('Invalid object provided, expected ' . $this->class);
+    if (!static::i()->ensureType($item)) {
+      throw new Exception(
+        'Invalid object provided, expected ' . static::i()->class);
       return false;
     }
 
@@ -74,8 +84,8 @@ abstract class BaseStore {
     }
 
     try {
-      if ($item->getID()) {
-        $this->db->remove($item->document());
+      if ($item->_id === null) {
+        static::i()->db->remove($item->document());
         return true;
       } else {
         return false;
@@ -88,7 +98,7 @@ abstract class BaseStore {
 
   public function removeWhere($query = []) {
     try {
-      $this->db->remove($query);
+      static::i()->db->remove($query);
       return true;
     } catch (MongoException $e) {
       l('MongoException:', $e->getMessage());
@@ -96,24 +106,24 @@ abstract class BaseStore {
     }
   }
 
-  public function removeById($id) {
-    return $this->removeWhere(['_id' => mid($id)]);
+  public function removeById(MongoId $id) {
+    return static::i()->removeWhere(['_id' => $id]);
   }
 
   public function aggregate(BaseAggregation $aggregation) {
     return call_user_func_array(
-      [$this->db, 'aggregate'],
+      [static::i()->db, 'aggregate'],
       $aggregation->getPipeline());
   }
 
   public function mapReduce(
     MongoCode $map,
     MongoCode $reduce,
-    array $query = null,
-    array $config = null) {
+    ?array $query = null,
+    ?array $config = null) {
 
     $options = [
-      'mapreduce' => $this->collection,
+      'mapreduce' => static::i()->collection,
       'map' => $map,
       'reduce' => $reduce,
       'out' => ['inline' => true]];
@@ -141,8 +151,9 @@ abstract class BaseStore {
   }
 
   public function save(BaseModel &$item) {
-    if (!$this->ensureType($item)) {
-      throw new Exception('Invalid object provided, expected ' . $this->class);
+    if (!static::i()->ensureType($item)) {
+      throw new Exception(
+        'Invalid object provided, expected ' . static::i()->class);
       return false;
     }
 
@@ -151,14 +162,14 @@ abstract class BaseStore {
     }
 
     try {
-      if (!$item->getID()) {
+      if ($item->_id === null) {
         $id = new MongoId();
-        $item->setID($id);
+        $item->_id = $id;
         $document = $item->document();
-        $this->db->insert($document);
+        static::i()->db->insert($document);
       } else {
         $document = $item->document();
-        $this->db->save($document);
+        static::i()->db->save($document);
       }
       return true;
     } catch (MongoException $e) {
@@ -293,73 +304,145 @@ class BaseAggregation {
 
 abstract class BaseModel {
   public ?MongoId $_id;
+  private string $__model;
   public function __construct(array<string, mixed> $document = []) {
-
+    $this->__model = get_called_class();
     foreach ($document as $key => $value) {
       if (property_exists($this, $key)) {
         $this->$key = $key == '_id' ? mid($value) : $value;
+
+        if (is_array($value)) {
+          if (idx($value, '__model') && !idx($value, '__ref')) {
+            $model_name = idx($value, '__model');
+            $model = new $model_name($value);
+            $this->$key = $model;
+          } elseif (idx($value, '__ref')) {
+            $model_name = idx($value, '__model');
+            $model = new $model_name();
+            $model->_id = idx($value, '_id');
+            $this->$key = BaseRef::fromModel($model);
+          } else {
+            $refs = [];
+            foreach ($value as $k => $v) {
+              if (idx($v, '__model') && !idx($v, '__ref')) {
+                $model_name = idx($v, '__model');
+                $model = new $model_name($v);
+                $refs[$k] = $model;
+              } elseif (idx($v, '__ref')) {
+                $model_name = idx($v, '__model');
+                $model = new $model_name();
+                $model->_id = idx($v, '_id');
+                $refs[$k] = BaseRef::fromModel($model);
+              } else {
+                $refs[$k] = $v;
+              }
+            }
+
+            $this->$key = $refs;
+          }
+        }
       }
     }
   }
 
+  public function __set($name, $value) {
+    if (get_called_class() !== 'BaseModel') {
+      invariant_violation(
+        'Cannot set field %s in %s: field does not exist',
+        $name,
+        get_called_class());
+    }
+  }
+
+  public function __get($name) {
+    if (get_called_class() !== 'BaseModel') {
+      invariant_violation(
+        'Cannot get field %s in %s: field does not exist',
+        $name,
+        get_called_class());
+    }
+  }
+
   public function document(): array<string, mixed> {
-    return get_object_vars($this);
+    $document = get_object_vars($this);
+    foreach ($document as &$item) {
+      if ($item instanceof BaseRef || $item instanceof BaseModel) {
+        $item = $item->document();
+      } elseif (is_array($item)) {
+        foreach ($item as &$i) {
+          $i = $i instanceof BaseRef || $i instanceof BaseModel ?
+            $i->document() :
+            $i;
+        }
+      }
+    }
+
+    return $document;
   }
 
-  final public function getID(): ?MongoId {
-    return $this->_id;
+  final public function reference(): BaseRef {
+    return BaseRef::fromModel($this);
+  }
+}
+
+class BaseRef<T as BaseModel> {
+  protected bool $__ref;
+  protected string $__model;
+  protected string $__collection;
+  protected MongoId $_id;
+  protected ?T $model;
+
+  public function __construct(T $model) {
+    invariant(
+      $model->_id,
+      'Cannot create a reference from a non-existing document');
+
+    invariant(
+      $model::COLLECTION,
+      'Cannot create a reference from Models with no collections');
+
+    $this->__ref = true;
+    $this->_id = $model->_id;
+    $this->__model = get_class($model);
+    $this->__collection = $model::COLLECTION;
   }
 
-  final public function setID(MongoId $_id): void {
-    $this->_id = $_id;
+  public function __set($key, $value) {
+    invariant_violation('Cannot set attributes on a reference');
   }
 
-  public function __call($method, $args) {
-    if (strpos($method, 'get') === 0) {
-      $op = 'get';
-    } elseif (strpos($method, 'set') === 0) {
-      $op = 'set';
-    } elseif (strpos($method, 'remove') === 0) {
-      $op = 'remove';
-    } elseif (strpos($method, 'has') === 0) {
-      $op = 'has';
-    } else {
-      $e = sprintf('Method "%s" not found in %s', $method, get_called_class());
-      throw new RuntimeException($e);
+  public function __get($key): mixed {
+    // no idx() here, will trust BaseModel's __get()
+    return $this->model() !== null ? $this->model->$key : null;
+  }
+
+  public static function fromModel(T $model): BaseRef<T> {
+    return new self<T>($model);
+  }
+
+  public function model(): ?T {
+    if ($this->model) {
+      return $this->model;
+    }
+
+    $store = MongoInstance::get($this->__collection);
+    $doc = $store->findOne(['_id' => $this->_id]);
+    if ($doc === null) {
+      ls('Broken reference: %s:%s', $this->__collection, $this->_id);
       return null;
     }
 
-    // $method = preg_replace('/^(get|set|remove|has)/i', '', $method);
-    $method = preg_replace('/^(get|set)/i', '', $method);
+    $model = $this->__model;
+    $this->model = new $model($doc);
+    return $this->model;
+  }
 
-    preg_match_all(
-      '!([A-Z][A-Z0-9]*(?=$|[A-Z][a-z0-9])|[A-Za-z][a-z0-9]+)!',
-      $method,
-      $matches);
-
-    $ret = $matches[0];
-    foreach ($ret as &$match) {
-      $match = $match == strtoupper($match) ?
-        strtolower($match) :
-        lcfirst($match);
-    }
-
-    $field = implode('_', $ret);
-
-    $arg = array_pop($args);
-
-    switch ($op) {
-      case 'set':
-        $this->$field = $arg;
-        return;
-
-      case 'get':
-        invariant(
-          property_exists($this, $field),
-          '%s is not a valid field for %s',
-          $field,
-          get_called_class());
-        return $this->$field;
-    }
+  public function document(): array<string, mixed> {
+    return [
+      '__ref' => true,
+      '_id' => $this->_id,
+      '__model' => $this->__model,
+      '__collection' => $this->__collection,
+    ];
   }
 }

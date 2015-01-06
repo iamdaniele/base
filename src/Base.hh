@@ -59,7 +59,7 @@ class BaseController {
   // exception, which is useful to halt the execution flow when an error
   // occurs. An optional $error can be specified if you need to set the
   // exception message.
-  protected function genFlow(&$error = null) {return [];}
+  protected function genFlow() {return [];}
 
   protected function isXHR() {
     return !!idx($_SERVER, 'HTTP_X_REQUESTED_WITH') == 'XMLHTTPRequest';
@@ -229,7 +229,7 @@ class BaseListener extends BaseController {
 class BaseJSONView extends BaseView {
   private array<string, mixed> $_payload;
   public final function success(
-    array<string, mixed> $data = null,
+    ?array<string, mixed> $data = null,
     int $http_status = 200): this {
 
     $this->status($http_status);
@@ -272,28 +272,55 @@ class URL {
   protected array $url;
   protected array $query;
   public function __construct(?string $url = null) {
-    if ($url === null) {
-      $url = $this->buildCurrentURL();
+    $current_url = parse_url($this->buildCurrentURL());
+    $parsed_url = [];
+    if ($url !== null) {
+      $parsed_url = parse_url($url);
+      invariant($parsed_url !== false, 'Invalid URL');
+      if (!(idx($parsed_url, 'scheme') && idx($parsed_url, 'host'))) {
+        unset($current_url['query']);
+        $this->url = array_merge($current_url, $parsed_url);
+      } else {
+        $this->url = $parsed_url;
+      }
+    } else {
+      $this->url = $current_url;
     }
-    $parsed_url = parse_url($url);
-    invariant($parsed_url !== false, 'Invalid URL');
 
-    $this->url = $parsed_url;
 
     if (idx($this->url, 'query')) {
       parse_str($this->url['query'], $this->query);
     }
   }
 
+  public static function route(string $name, array $params = []): URL {
+    return BaseRouter::generateUrl($name, $params);
+  }
+
   protected function buildCurrentURL(): string {
+    $protocol = idx($_SERVER, 'REQUEST_SCHEME', 'https');
+
+    if (idx($_SERVER, 'HTTP_X_FORWARDED_PROTO') === 'https') {
+      $protocol = 'https';
+    }
+
+    $server_port_key =
+      $protocol === 'https' ?
+      'HTTPS_SERVER_PORT' :
+      'HTTP_SERVER_PORT';
+
     return sprintf('%s://%s%s%s',
-      idx($_SERVER, 'HTTPS') ? 'https' : 'http',
-      idx($_SERVER, 'SERVER_NAME'),
-      idx($_SERVER, 'SERVER_PORT') ? ':' . $_SERVER['SERVER_PORT'] : '',
+      $protocol,
+      EnvProvider::get('SERVER_NAME'),
+      EnvProvider::has($server_port_key) &&
+      EnvProvider::get($server_port_key) != 80 &&
+      EnvProvider::get($server_port_key) != 443 ?
+        ':' . EnvProvider::get($server_port_key) :
+        '',
       idx($_SERVER, 'REQUEST_URI'));
   }
 
-  public function query(string $key, ?mixed $value = null) {
+  public function query(string $key, mixed $value = null) {
     if ($value === null) {
       return idx($this->query, $key, null);
     }
@@ -325,7 +352,12 @@ class URL {
       return idx($this->url, 'port', null);
     }
 
-    $this->url['port'] = $port;
+    if ($port === 0) {
+      unset($this->url['port']);
+    } else {
+      $this->url['port'] = $port;
+    }
+
     return $this;
   }
 
@@ -436,16 +468,21 @@ class BaseNotFoundController extends BaseController {
 class ApiRunner {
   protected
     $listeners,
-    $map,
     $pathInfo,
     $params,
     $paramNames;
 
+  protected static array $map = [];
+
   public function __construct($map) {
-    $this->map = $map;
+    self::$map = $map;
     $this->paramNames = [];
     $this->params = [];
     $this->listeners = [];
+  }
+
+  public static function getMap() {
+    return self::$map;
   }
 
   protected function getPathInfo() {
@@ -522,7 +559,7 @@ class ApiRunner {
   }
 
   protected function selectController() {
-    foreach ($this->map as $v) {
+    foreach (self::$map as $v) {
       if ($this->matches($this->getPathInfo(), $v['route'])) {
         return $v['controller'];
       }
@@ -576,6 +613,16 @@ class ApiRunner {
     }
   }
 
+  protected function getAllHeaders(): array {
+    $headers = [];
+    foreach ($_SERVER as $name => $value) {
+     if (substr($name, 0, 5) == 'HTTP_') {
+       $headers[str_replace(' ', '-', ucwords(strtolower(str_replace('_', ' ', substr($name, 5)))))] = $value;
+     }
+    }
+    return $headers;
+  }
+
   public function run() {
 
     $this->fireEvent('preprocess');
@@ -597,8 +644,8 @@ class ApiRunner {
       case 'OPTIONS':
         $controller_name .= ucfirst(strtolower($method)) . 'Controller';
         $controller_path .= ucfirst(strtolower($method));
-        $origin = idx(getallheaders(), 'Origin');
-        $allow_headers = array_keys(getallheaders());
+        $origin = idx($this->getAllHeaders(), 'Origin');
+        $allow_headers = array_keys($this->getAllHeaders());
         $allow_headers[] = 'Access-Control-Allow-Origin';
         $headers = implode(', ', $allow_headers);
         header('Access-Control-Allow-Origin: *');
@@ -651,18 +698,23 @@ class ApiRunner {
 
 class BaseRouter {
   static protected array $params = [];
+  static private function getRouteByName(string $route_name): string {
+    $map = ApiRunner::getMap();
+    invariant($map, 'Cannot get route map.');
 
-  static private function getRouteByName(string $routeName): ?string {
-    global $map;
-    if (isset($map[$routeName])) {
-      return $map[$routeName]['route'];
-    }
-    return null;
+    invariant(idx($map, $route_name), 'Route not found: %s', $route_name);
+
+    invariant(
+      idx($map[$route_name], 'route') && idx($map[$route_name], 'controller'),
+      'Route or controller name not found for route %s', $route_name);
+
+    return $map[$route_name]['route'];
   }
 
   static public function getParameterizedRoute(
-    string $route, mixed $matches, $params = []
-  ): URL {
+    string $route,
+    mixed $matches,
+    array $params = []): URL {
     foreach ($matches[0] as $m) {
       $isMandatoryParam = $m[0] === '/' ? true : false;
       $paramName = $isMandatoryParam
@@ -696,10 +748,12 @@ class BaseRouter {
     return $url;
   }
 
-  static public function generateUrl(string $routeName,
-    $params = []
+  static public function generateUrl(
+    string $route_name,
+    array $params = []
   ): URL {
-    $route = self::getRouteByName($routeName);
+    $matches = [];
+    $route = self::getRouteByName($route_name);
     preg_match_all('#\(?\/:\w+\)?#', $route, $matches);
     $url = self::getParameterizedRoute($route, $matches, $params);
     if ($params) {
@@ -772,8 +826,8 @@ class Base {
         'Model' => 'models',
         'Store' => 'storage',
         'Trait' => 'traits',
-        'Enum' => 'const',
-        'Const' => 'const',
+        'Enum' => 'enums',
+        'Type' => 'enums',
         'Exception' => 'exceptions',
         'Controller' => 'controllers',
         'Worker' => 'workers',
@@ -789,7 +843,6 @@ class Base {
         case 'BaseQueueFilesStore':
         case 'BaseQueueFileModel':
         case 'BaseStore':
-        case 'BaseEnum':
         case 'BaseWorkerScheduler':
         case 'BaseWorker':
         case 'BaseListener':
@@ -902,6 +955,16 @@ abstract class :base:layout extends :x:element {
 }
 
 class :base:widget extends :x:element {
+  public function init() {
+    $widget_name = self::class2element(get_called_class());
+    $widget_name = str_replace('widget:', '', $widget_name);
+    $this->setAttribute('data-widget', $widget_name);
+  }
+
+  public function getName(): string {
+    return $this->getAttribute('data-widget');
+  }
+
   public final function css(mixed $url): void {
     invariant(is_string($url) || is_array($url), 'url must be array or string');
 
@@ -930,43 +993,121 @@ class :base:widget extends :x:element {
 }
 
 class BaseLayoutHelper {
-  protected static array $javascripts;
-  protected static array $stylesheets;
+  protected static array $resources = [
+    'layout' => [
+      'local' => [
+        'css' => [],
+        'js' => []],
+      'remote' => [
+        'css' => [],
+        'js' => []]],
+    'widget' => [
+      'local' => [
+        'css' => [],
+        'js' => []],
+      'remote' => [
+        'css' => [],
+        'js' => []]],
+  ];
 
-  public static function addJavascript(:script $javascript): void {
+  public static function addJavascript(
+    :script $javascript,
+    bool $layout = false): void {
     $url = $javascript->getAttribute('src');
 
-    if (!idx(self::$javascripts, $url)) {
-      self::$javascripts[$url] = $javascript;
-    }
+    $element = $layout ? 'layout' : 'widget';
+    $origin = self::isLocal($url) ? 'local' : 'remote';
+
+    self::$resources[$element][$origin]['js'][$url] = $javascript;
   }
 
-  public static function addStylesheet(:link $stylesheet): void {
+  public static function addStylesheet(
+    :link $stylesheet,
+    bool $layout = false): void {
     $url = $stylesheet->getAttribute('href');
 
-    if (!idx(self::$stylesheets, $url)) {
-      self::$stylesheets[$url] = $stylesheet;
+    $element = $layout ? 'layout' : 'widget';
+    $origin = self::isLocal($url) ? 'local' : 'remote';
+
+    self::$resources[$element][$origin]['css'][$url] = $stylesheet;
+  }
+
+  protected static function isLocal(string $url): bool {
+    return !!(preg_match('/^(https?:)?(\/\/)/', $url, []) === 0);
+  }
+
+  protected static function hash(string $type): void {
+    switch ($type) {
+      case 'js':
+        $array = array_merge(
+          array_keys(self::$resources['layout']['local']['js']),
+          array_keys(self::$resources['widget']['local']['js']));
+        break;
+      case 'css':
+        $array = array_merge(
+          array_keys(self::$resources['layout']['local']['css']),
+          array_keys(self::$resources['widget']['local']['css']));
+        break;
     }
+
+    $map = $array;
+
+    // Preserve file order so that JS and CSS can respect loading priority.
+    // Layout resources go first.
+    natsort($map);
+    $map = array_values($map);
+
+    $hash = sha256(implode(':', $map)) . '.' . $type;
+    $file_path = sys_get_temp_dir() . '/' . $hash;
+
+    if (!file_exists($file_path)) {
+      $content = '';
+      foreach ($array as $file) {
+        $content .= file_get_contents('public/' . $file) . PHP_EOL;
+      }
+      file_put_contents($file_path, $content);
+    }
+
+    return URL::route('dynamic_resource', ['type' => $type, 'hash' => $hash]);
   }
 
   public static function javascripts(): array<:script> {
-    return self::$javascripts === null ? [] : self::$javascripts;
+    if (EnvProvider::get('ENABLE_RESOURCES_COMPRESSION') == 1) {
+      return array_merge(
+        self::$resources['layout']['remote']['js'],
+        self::$resources['widget']['remote']['js'],
+        [<script src={self::hash('js')} />]);
+    } else {
+      return array_merge(
+        self::$resources['layout']['remote']['js'],
+        self::$resources['widget']['remote']['js'],
+        self::$resources['layout']['local']['js'],
+        self::$resources['widget']['local']['js']);
+    }
   }
 
   public static function stylesheets(): array<:link> {
-    return self::$stylesheets === null ? [] : self::$stylesheets;
+    if (EnvProvider::get('ENABLE_RESOURCES_COMPRESSION') == 1) {
+      return array_merge(
+        self::$resources['layout']['remote']['css'],
+        self::$resources['widget']['remote']['css'],
+        [<link rel="stylesheet" href={self::hash('css')} />]);
+    } else {
+      return array_merge(
+        self::$resources['layout']['remote']['css'],
+        self::$resources['widget']['remote']['css'],
+        self::$resources['layout']['local']['css'],
+        self::$resources['widget']['local']['css']);
+    }
   }
 }
 
 class BaseTranslationHolder {
-  static array $projects;
+  static array $projects = [];
 
   static protected function loadProject(string $locale, string $project): bool {
-    if (static::$projects == null) {
-      static::$projects[$locale] = [];
-    }
-
-    if (idx(static::$projects[$locale], $project)) {
+    if (idx(static::$projects, $locale) &&
+      idx(static::$projects[$locale], $project)) {
       return true;
     }
 
@@ -1011,8 +1152,8 @@ class :t extends :x:primitive {
   public function init() {
     if ($this->getAttribute('locale')) {
       $this->locale = $this->getAttribute('locale');
-    } elseif (idx($_ENV, 'LOCALE')) {
-      $this->locale = $_ENV['LOCALE'];
+    } elseif (EnvProvider::getLocale()) {
+      $this->locale = EnvProvider::getLocale();
     } else {
       invariant_violation('No default locale provided');
     }
@@ -1061,6 +1202,6 @@ class :t:p extends :x:primitive {
     string name @required;
 
   public function stringify() {
-    return $this->getChildren()[0];
+    return idx($this->getChildren(), 0);
   }
 }

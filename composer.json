@@ -1,5 +1,11 @@
 {
-      "name": "base/base",
-      "require": {
-      }
+  "name": "base/base",
+  "require": {
+    "ccampbell/chromephp": "dev-master"
+  },
+  "autoload": {
+    "files": [
+      "src/init.hh"
+    ]
+  }
 }

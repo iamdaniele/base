@@ -28,7 +28,8 @@ class BaseWorkerScheduler {
         $e->getMessage());
     }
 
-    self::$queue->rpush(self::SCHEDULER_KEY, serialize($worker));
+    $payload = ['env' => EnvProvider::getAll(), 'worker' => $worker];
+    self::$queue->rpush(self::SCHEDULER_KEY, serialize($payload));
   }
 }
 
