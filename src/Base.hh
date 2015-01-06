@@ -548,8 +548,10 @@ class ApiRunner {
 
   protected function notFound() {
     $_GET['path_info'] = $this->getPathInfo();
-    $controller = new BaseNotFoundController();
-    return $controller;
+    if (!$this->fireEvent('notFound')) {
+      $controller = new BaseNotFoundController();
+      return $controller;
+    }
   }
 
   public function addEventListener(string $event, string $controller): void {
@@ -562,7 +564,7 @@ class ApiRunner {
 
   public function fireEvent($event): void {
     if (!idx($this->listeners, $event)) {
-      return;
+      return false;
     }
 
     foreach ($this->listeners[$event] as $controller_name) {
