@@ -173,7 +173,7 @@ abstract class BaseStore {
       }
       return true;
     } catch (MongoException $e) {
-      l('MongoException:', $e->getMessage());
+      invariant_violation($e->getMessage());
       return false;
     }
     return true;
