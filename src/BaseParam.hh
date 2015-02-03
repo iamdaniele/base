@@ -28,6 +28,28 @@ class BaseParam {
     return new BaseParam($key, $value);
   }
 
+  public static function BoolType($key, $default = null) {
+    $params = array_merge($_GET, $_POST);
+    $value = idx($params, $key);
+
+    invariant(!($value === null && $default === null),
+      'Param is required: ' . $key);
+
+    $value = $value !== null ? $value : $default;
+
+    if (!is_bool($value)) {
+      if ($value === "false") {
+        $value = false;
+      } else {
+        $value = (bool)$value;
+      }
+    } else {
+      invariant_violation('Wrong type: %s', $key);
+    }
+
+    return new BaseParam($key, $value);
+  }
+
   public static function EmailType($key, ?string $default = null) {
     $params = array_merge($_GET, $_POST);
     $value = idx($params, $key);
