@@ -28,13 +28,20 @@ class BaseWorkerScheduler {
         $e->getMessage());
     }
 
-    $payload = ['env' => EnvProvider::getAll(), 'worker' => $worker];
-    self::$queue->rpush(self::SCHEDULER_KEY, serialize($payload));
+    $payload = [
+      'env' => EnvProvider::getAll(),
+      'worker' => get_class($worker),
+      'payload' => $worker->payload(),
+    ];
+    self::$queue->rpush(self::SCHEDULER_KEY, json_encode($payload));
   }
 }
 
 abstract class BaseWorker {
-  public final function __construct() {
+  protected array<string, mixed> $payload;
+
+  public final function __construct(array<string, mixed> $payload = []) {
+    $this->payload = $payload;
     $this->init();
   }
 
@@ -43,6 +50,14 @@ abstract class BaseWorker {
   }
 
   public function beforeRun(): void {}
+
+  final public function setPayload(array<string, mixed> $payload): void {
+    $this->payload = $payload;
+  }
+
+  final public function payload(): array<string, mixed> {
+    return $this->payload;
+  }
 
   public function init(): void {}
   abstract public function run(): void;
