@@ -567,6 +567,18 @@ class ApiRunner {
     return false;
   }
 
+  public function getRouteByURL(URL $url): Map {
+    $map = Map {};
+    foreach (self::$map as $key => $v) {
+      if ($this->matches($url->path(), $v['route'])) {
+        $map['route'] = $key;
+        $map['params'] = $this->params;
+        break;
+      }
+    }
+    return $map;
+  }
+
   protected function getRequestMethod() {
     return $_SERVER['REQUEST_METHOD'];
   }
