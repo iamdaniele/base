@@ -996,15 +996,28 @@ class :base:widget extends :x:element {
     if (is_array($url)) {
       foreach ($url as $u) {
         invariant(is_string($u), 'Invalid string provided');
-        BaseLayoutHelper::addJavascript(<script src={$u}></script>);
+        $type =
+          strpos($u, '.6to5.js') !== false ?
+          'text/ecmascript-6' :
+          'text/javascript';
+
+        BaseLayoutHelper::addJavascript(
+          <script type={$type} src={$u}></script>);
       }
     } elseif (is_string($url)) {
-      BaseLayoutHelper::addJavascript(<script src={$url}></script>);
+      $type =
+        strpos($url, '.6to5.js') !== false ?
+        'text/ecmascript-6' :
+        'text/javascript';
+
+      BaseLayoutHelper::addJavascript(
+        <script type={$type} src={$url}></script>);
     }
   }
 }
 
 class BaseLayoutHelper {
+  protected static ?string $build;
   protected static array $resources = [
     'layout' => [
       'local' => [
@@ -1048,6 +1061,19 @@ class BaseLayoutHelper {
     return !!(preg_match('/^(https?:)?(\/\/)/', $url, []) === 0);
   }
 
+  protected static function cacheBuster(): string {
+    if (!EnvProvider::get('ENABLE_RESOURCES_COMPRESSION') ||
+      !EnvProvider::get('DYNAMIC_RESOURCES_CACHE_BUSTER')) {
+      return '';
+    }
+
+    if (self::$build === null) {
+      self::$build = file_exists('build') ? file_get_contents('build') : time();
+    }
+
+    return self::$build != false ? (string)self::$build : '';
+  }
+
   protected static function hash(string $type): URL {
     switch ($type) {
       case 'js':
@@ -1080,7 +1106,17 @@ class BaseLayoutHelper {
       file_put_contents($file_path, $content);
     }
 
-    return URL::route('dynamic_resource', ['type' => $type, 'hash' => $hash]);
+    $cache_buster = self::cacheBuster();
+    $route_params = [
+        'type' => $type,
+        'hash' => $hash,
+    ];
+
+    if ($cache_buster) {
+      $route_params['c'] = $cache_buster;
+    }
+
+    return URL::route('dynamic_resource', $route_params);
   }
 
   public static function javascripts(): array<:script> {
