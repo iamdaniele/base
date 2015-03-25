@@ -963,7 +963,7 @@ abstract class :base:layout extends :x:element {
     return !!idx($this->sections, $section, false);
   }
 
-  abstract public function render(): :x:element;
+  public function render(): :x:element {}
 }
 
 class :base:widget extends :x:element {
@@ -1014,6 +1014,8 @@ class :base:widget extends :x:element {
         <script type={$type} src={$url}></script>);
     }
   }
+
+  public function render(): :x:element {}
 }
 
 class BaseLayoutHelper {
