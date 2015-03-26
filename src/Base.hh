@@ -1254,6 +1254,10 @@ class :t:p extends :x:primitive {
     string name @required;
 
   public function stringify() {
-    return idx($this->getChildren(), 0);
+    $children = $this->getChildren();
+    if ($children->containsKey(0)) {
+      return $children->get(0);
+    }
+    return;
   }
 }
