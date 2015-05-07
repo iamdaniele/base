@@ -996,22 +996,12 @@ class :base:widget extends :x:element {
     if (is_array($url)) {
       foreach ($url as $u) {
         invariant(is_string($u), 'Invalid string provided');
-        $type =
-          strpos($u, '.6to5.js') !== false ?
-          'text/ecmascript-6' :
-          'text/javascript';
-
         BaseLayoutHelper::addJavascript(
-          <script type={$type} src={$u}></script>);
+          <script type="text/javascript" src={$u}></script>);
       }
     } elseif (is_string($url)) {
-      $type =
-        strpos($url, '.6to5.js') !== false ?
-        'text/ecmascript-6' :
-        'text/javascript';
-
       BaseLayoutHelper::addJavascript(
-        <script type={$type} src={$url}></script>);
+        <script type="text/javascript" src={$url}></script>);
     }
   }
 
