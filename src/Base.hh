@@ -62,6 +62,7 @@ class BaseController {
   protected function genFlow() {return [];}
 
   protected function isXHR() {
+    l($_SERVER);
     return !!idx($_SERVER, 'HTTP_X_REQUESTED_WITH') == 'XMLHTTPRequest';
   }
 
