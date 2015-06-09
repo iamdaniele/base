@@ -62,8 +62,13 @@ class BaseController {
   protected function genFlow() {return [];}
 
   protected function isXHR() {
-    l($_SERVER);
-    return !!idx($_SERVER, 'HTTP_X_REQUESTED_WITH') == 'XMLHTTPRequest';
+    $http_x_requested_with = idx($_SERVER, 'HTTP_X_REQUESTED_WITH');
+    switch ($http_x_requested_with) {
+      case 'com.facebook.katana':
+        return false;
+        break;
+    }
+    return !!$http_x_requested_with == 'XMLHTTPRequest';
   }
 
   protected function status(int $status): void {
