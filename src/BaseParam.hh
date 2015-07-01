@@ -136,6 +136,8 @@ class BaseParam {
 
     $value = $value !== null ? $value : $default;
     $value = filter_var($value, FILTER_SANITIZE_STRING);
+    $value = html_entity_decode($value);
+
     invariant(is_string($value), 'Wrong type: %s', $key);
     return new BaseParam($key, $value);
   }
