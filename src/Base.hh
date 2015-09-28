@@ -271,9 +271,8 @@ abstract class StaticPageController {
         }
       }
 
-      if ($layout->getChildren('section:bootstrap:body')) {
-        $layout->getChildren('section:bootstrap:body')[0]->appendChild(
-          $this->getFileContents());
+      if ($layout->hasSection('body')) {
+        $layout->section('body')->appendChild($this->getFileContents());
       }
     }
 
