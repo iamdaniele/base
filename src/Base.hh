@@ -215,6 +215,68 @@ abstract class BaseView {
   abstract public function render(bool $return_instead_of_echo);
 }
 
+final class StringToHTML implements XHPAlwaysValidChild, XHPUnsafeRenderable {
+
+  private $html;
+
+  public function __construct($html) {
+    $this->html = $html;
+  }
+
+  public function toHTMLString() {
+    return $this->html;
+  }
+}
+
+abstract class StaticPageController {
+  public function __construct(): void {
+    $this->init();
+    $this->genFlow();
+    $this->out();
+  }
+
+  protected function init() {}
+  protected function genFlow() {}
+
+  private function getFileContents(): mixed {
+    $called_class = get_called_class();
+    $file = 'static/'.$called_class::PAGE;
+    if (file_exists($file)) {
+      $content = file_get_contents($file);
+      $html = new StringToHTML($content);
+      return $html;
+    }
+    invariant_violation('File does not exists');
+  }
+
+  private function out(): void {
+    $layout = $this->render();
+    $layout->__toString();
+    if (method_exists($layout, 'hasSection')) {
+      if ($layout->hasSection('stylesheets')) {
+        foreach (BaseLayoutHelper::stylesheets() as $css) {
+          $layout->section('stylesheets')->appendChild($css);
+        }
+      }
+
+      if ($layout->hasSection('javascripts')) {
+        foreach (BaseLayoutHelper::javascripts() as $js) {
+          $layout->section('javascripts')->appendChild($js);
+        }
+      }
+
+      if ($layout->getChildren('section:bootstrap:body')) {
+        $layout->getChildren('section:bootstrap:body')[0]->appendChild(
+          $this->getFileContents());
+      }
+    }
+
+    echo $layout;
+  }
+
+  abstract public function render();
+}
+
 abstract class BaseMutatorController extends BaseController {
   abstract public function render();
 
