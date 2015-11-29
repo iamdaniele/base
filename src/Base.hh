@@ -1363,7 +1363,7 @@ class TemplateEngine {
     return $this;
   }
 
-  public function layout(): StringToHTML {
+  public function layout(bool $render_html = false): mixed {
     $keys = [];
     $values = [];
     foreach ($this->vars as $key => $value) {
@@ -1373,6 +1373,9 @@ class TemplateEngine {
 
     $this->templateRaw = str_replace($keys, $values, $this->templateRaw);
     $this->template = new StringToHTML($this->templateRaw);
-    return $this->template;
+    if ($render_html) {
+      return $this->template;
+    }
+    return $this->templateRaw;
   }
 }
