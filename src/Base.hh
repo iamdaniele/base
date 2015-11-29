@@ -1318,3 +1318,61 @@ class :t:p extends :x:primitive {
     return;
   }
 }
+
+class TemplateEngine {
+
+  protected StringToHTML $template;
+  protected string $templateRaw;
+  protected string $css;
+  protected Map $vars;
+
+  public function __construct(string $template_name) {
+    $this->vars = Map {};
+    $this->templateRaw = $this->getResource('templates/'.$template_name);
+  }
+
+  protected function getResource(string $path): string {
+    $buffer = file_get_contents($path);
+    invariant($buffer, 'Invalid resource '.$path);
+    return $buffer;
+  }
+
+  public function loadCSS(mixed $css_path): this {
+    invariant(
+      is_string($css_path) || is_array($css_path),
+      'url must be array or string');
+
+    if (is_array($css_path)) {
+      foreach ($css_path as $css) {
+        $this->css .= $this->getResource('public/'.$css);
+      }
+    } else if (is_string($css_path)) {
+      $this->css = $this->getResource('public/'.$css_path);
+    }
+    $this->css = preg_replace('!/\*[^*]*\*+([^/][^*]*\*+)*/!', '', $this->css);
+    $this->css = str_replace(': ', ':', $this->css);
+    $this->css = str_replace(
+      ["\r\n", "\r", "\n", "\t", '  ', '    ', '    '],
+      '',
+      $this->css);
+    return $this->css;
+  }
+
+  public function setVar(string $key, mixed $value): this {
+    $this->vars->set($key, $value);
+    return $this;
+  }
+
+  public function layout(): StringToHTML {
+    $keys = [];
+    $values = [];
+    foreach ($this->vars as $key => $value) {
+      $keys[] = $key;
+      $values[] = $value;
+    }
+
+    $this->templateRaw = str_replace($keys, $values, $this->templateRaw);
+    $this->template = new StringToHTML($this->templateRaw);
+    return $this->template;
+  }
+}
