@@ -1,5 +1,6 @@
 <?hh
 abstract class BaseStore {
+
   protected $class;
   protected $db;
 
@@ -25,28 +26,51 @@ abstract class BaseStore {
     return new static();
   }
 
-  public function db() {
-    return static::i()->db;
+  public function docs() {
+    return $this->docs;
   }
 
-  public function find(
-    array $query = [],
-    ?int $skip = 0,
-    ?int $limit = 0): BaseModel {
-    $docs = static::i()->db->find($query);
-    $class = static::i()->class;
+  public function find(?array $query = [], ?array $fields = []) {
+    $i = static::i();
+    $i->docs = $i->db->find($query, $fields);
+    return $i;
+  }
 
-    if ($skip !== null) {
-      $docs = $docs->skip($skip);
-    }
+  public function findOne(?array $query = [], ?array $fields = []) {
+    $i = static::i();
+    $class = $i->class;
+    $doc = $i->db->findOne($query, $fields);
+    return $i->loadModel($doc);
+  }
 
-    if ($limit !== null) {
-      $limit = $docs->limit($limit);
-    }
+  public function update(array $query, array $new_object) {
+    $i = static::i();
+    return $i->db->update($query, $new_object);
+  }
 
-    foreach ($docs as $doc) {
+  public function sort(array $query)  {
+    $this->docs = $this->docs->sort($query);
+    return $this;
+  }
+
+  public function limit(int $query) {
+    $this->docs = $this->docs->limit($query);
+    return $this;
+  }
+
+  public function load() {
+    $class = $this->class;
+    foreach ($this->docs as $doc) {
       yield new $class($doc);
     }
+  }
+
+  public function loadModel(?array $doc = []) {
+    if (!$doc) {
+      return null;
+    }
+    $class = $this->class;
+    return new $class($doc);
   }
 
   public function distinct(string $key, array $query = []) {
@@ -54,13 +78,7 @@ abstract class BaseStore {
     return !is_array($docs) ? [] : $docs;
   }
 
-  public function findOne(array $query): ?BaseModel {
-    $doc = static::i()->db->findOne($query);
-    $class = static::i()->class;
-    return $doc ? new $class($doc) : null;
-  }
-
-  public function findById(MongoId $id): ?BaseModel {
+  public function findById(MongoId $id) {
     return static::i()->findOne(['_id' => $id]);
   }
 
@@ -72,7 +90,7 @@ abstract class BaseStore {
     return class_exists(static::i()->class) && is_a($item, $this->class);
   }
 
-  public function remove(BaseModel $item) {
+  public function removeByModel(BaseModel $item) {
     if (!static::i()->ensureType($item)) {
       throw new Exception(
         'Invalid object provided, expected ' . static::i()->class);
@@ -96,9 +114,9 @@ abstract class BaseStore {
     }
   }
 
-  public function removeWhere($query = []) {
+  public function remove(array $query = [], array $options = []) {
     try {
-      static::i()->db->remove($query);
+      static::i()->db->remove($query, $options);
       return true;
     } catch (MongoException $e) {
       l('MongoException:', $e->getMessage());
@@ -107,7 +125,7 @@ abstract class BaseStore {
   }
 
   public function removeById(MongoId $id) {
-    return static::i()->removeWhere(['_id' => $id]);
+    return static::i()->remove(['_id' => $id]);
   }
 
   public function aggregate(BaseAggregation $aggregation) {
