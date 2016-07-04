@@ -53,6 +53,11 @@ abstract class BaseStore {
     return $this;
   }
 
+  public function skip(int $skip) {
+    $this->docs = $this->docs->skip($skip);
+    return $this;
+  }
+
   public function limit(int $query) {
     $this->docs = $this->docs->limit($query);
     return $this;
