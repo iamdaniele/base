@@ -822,7 +822,7 @@ class BaseRouter {
     $optionalParamsKeys = array_keys($optionalParams);
     $diffArray = array_diff($optionalParamsKeys, $paramsKeys);
     foreach ($diffArray as $p) {
-      $url->query($p, $optionalParams[$p]);
+      $url->query($p, (string) $optionalParams[$p]);
     }
     return $url;
   }
