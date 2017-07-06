@@ -87,7 +87,7 @@ abstract class BaseStore {
     return static::i()->findOne(['_id' => $id]);
   }
 
-  public function count(array $query): int {
+  public function count(array $query = []): int {
     return static::i()->db->count($query);
   }
 
