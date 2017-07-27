@@ -43,9 +43,13 @@ abstract class BaseStore {
     return $i->loadModel($doc);
   }
 
-  public function update(array $query, array $new_object) {
+  public function update(
+    array $query,
+    array $new_object,
+    ?array $options = []
+  ) {
     $i = static::i();
-    return $i->db->update($query, $new_object);
+    return $i->db->update($query, $new_object, $options);
   }
 
   public function sort(array $query)  {
