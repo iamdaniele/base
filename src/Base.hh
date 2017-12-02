@@ -66,6 +66,7 @@ class BaseController {
     l($http_x_requested_with);
     switch ($http_x_requested_with) {
       case 'com.facebook.katana':
+      case 'com.facebook.orca':
         return false;
         break;
     }
