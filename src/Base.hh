@@ -63,6 +63,7 @@ class BaseController {
 
   protected function isXHR() {
     $http_x_requested_with = idx($_SERVER, 'HTTP_X_REQUESTED_WITH');
+    l($http_x_requested_with);
     switch ($http_x_requested_with) {
       case 'com.facebook.katana':
         return false;
