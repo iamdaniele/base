@@ -63,13 +63,16 @@ class BaseController {
 
   protected function isXHR() {
     $http_x_requested_with = idx($_SERVER, 'HTTP_X_REQUESTED_WITH');
-    switch ($http_x_requested_with) {
-      case 'com.facebook.katana':
-      case 'com.facebook.orca':
-        return false;
-        break;
+    if ($http_x_requested_with !== 'XMLHTTPRequest') {
+      return false;
     }
-    return !!$http_x_requested_with == 'XMLHTTPRequest';
+    // switch ($http_x_requested_with) {
+    //   case 'com.facebook.katana':
+    //   case 'com.facebook.orca':
+    //     return false;
+    //     break;
+    // }
+    // return !!$http_x_requested_with == 'XMLHTTPRequest';
   }
 
   protected function status(int $status): void {
