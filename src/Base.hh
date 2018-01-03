@@ -63,14 +63,9 @@ class BaseController {
 
   protected function isXHR() {
     $http_x_requested_with = idx($_SERVER, 'HTTP_X_REQUESTED_WITH');
-    // if ($http_x_requested_with !== 'XMLHTTPRequest') {
-    //   return false;
-    // }
-    switch ($http_x_requested_with) {
-      case 'com.facebook.katana':
-      case 'com.facebook.orca':
-        return false;
-        break;
+    // WebView workaround
+    if (strpos($http_x_requested_with, 'com.') !== false) {
+      return false;
     }
     return !!$http_x_requested_with == 'XMLHTTPRequest';
   }
