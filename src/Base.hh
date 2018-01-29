@@ -837,6 +837,7 @@ class BaseRouter {
     if ($params) {
       $url = self::addOptionalParameter($url, $params);
     }
+    self::$params = [];
     return $url;
   }
 }
