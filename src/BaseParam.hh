@@ -18,6 +18,10 @@ class BaseParam {
     $params = array_merge($_GET, $_POST, $_FILES);
     $value = idx($params, $key);
 
+    if ($value === '') {
+      $value = null;
+    }
+
     invariant(!($value === null && $default === null),
       'Param is required: ' . $key);
 
