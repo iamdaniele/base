@@ -663,7 +663,7 @@ class ApiRunner {
 
   protected function notFound() {
     $_GET['path_info'] = $this->getPathInfo();
-    if (!$this->fireEvent('notFound')) {
+    if ($this->fireEvent('notFound') === false) {
       $controller = new BaseNotFoundController();
       return $controller;
     }
