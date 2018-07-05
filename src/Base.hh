@@ -911,6 +911,7 @@ class Base {
         'Controller' => 'controllers',
         'Worker' => 'workers',
         'Listener' => 'listeners',
+        'Interface' => 'interfaces',
       ];
 
       // These classes are stored in lib/base or lib/queue, so no need to
